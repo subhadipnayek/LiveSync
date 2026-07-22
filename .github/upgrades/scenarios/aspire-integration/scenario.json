@@ -1,0 +1,13 @@
+{
+  "scenarioId": "aspire-integration",
+  "operationId": "14124252-53d0-42f3-9552-0adfceaf49e5",
+  "description": "Adds Aspire orchestration to an existing repository for inner-loop development and optional Azure deployment readiness. Use when asked to \u0022aspirerify a project\u0022, \u0022add Aspire to a solution\u0022, \u0022integrate Aspire\u0022, \u0022set up an AppHost\u0022, \u0022add aspire init\u0022, or \u0022orchestrate services with Aspire\u0022. Handles CLI setup, TFM compatibility gating, inter-service communication mapping, and delegates AppHost wiring to the Aspire CLI agent skills.\n",
+  "startTime": "2026-07-22T18:59:54.4287436Z",
+  "lastUpdateTime": "2026-07-22T19:05:00.5859321Z",
+  "properties": {
+    "taskStates": {
+      "01-environment-setup": "Completed"
+    }
+  },
+  "folderPath": ""
+}
