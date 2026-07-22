@@ -2,6 +2,7 @@ using LiveSync.Hubs;
 using LiveSync.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using StackExchange.Redis;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -61,10 +62,17 @@ var signalRBuilder = builder.Services.AddSignalR(options =>
 var redisConnectionString = builder.Configuration["Redis:ConnectionString"];
 if (!string.IsNullOrWhiteSpace(redisConnectionString))
 {
+    var multiplexer = await ConnectionMultiplexer.ConnectAsync(redisConnectionString);
+    builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
+    builder.Services.AddSingleton<IDocumentStateService, RedisDocumentStateService>();
     signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
     {
         options.Configuration.ChannelPrefix = "LiveSync";
     });
+}
+else
+{
+    throw new InvalidOperationException("Redis:ConnectionString is required. Configure it in appsettings or environment variables.");
 }
 
 var apiBaseUrl = builder.Configuration["Services:ApiBaseUrl"]

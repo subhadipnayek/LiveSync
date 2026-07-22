@@ -1,4 +1,4 @@
-# Automatic Database Migration - Quick Reference
+﻿# Automatic Database Migration - Quick Reference
 
 ## What Was Added
 
@@ -76,13 +76,13 @@ The application **will not start** - ensuring you don't run with an outdated sch
 ## Development vs Production
 
 ### Development
-- Works with local SQL Server Express
-- Connection string in `appsettings.json`
-- Migrations applied on every `dotnet run`
+- Works with local PostgreSQL (Docker container recommended)
+- Connection string in `appsettings.Development.json` or user-secrets
+- Migrations applied on every `dotnet run` (when `Database:MigrateOnStartup=true`)
 
 ### Production (AWS)
-- Works with RDS SQL Server
-- Connection string from environment variables
+- Works with AWS RDS for PostgreSQL or Aurora PostgreSQL
+- Connection string from environment variables / Secrets Manager
 - Migrations applied on each deployment
 - Monitored via CloudWatch logs
 
@@ -117,8 +117,8 @@ Create CloudWatch alarms for:
 
 ### Check Migration History
 ```sql
-SELECT * FROM [__EFMigrationsHistory]
-ORDER BY [MigrationId] DESC;
+SELECT * FROM "__EFMigrationsHistory"
+ORDER BY "MigrationId" DESC;
 ```
 
 Expected result:
@@ -130,15 +130,15 @@ Expected result:
 ### Check Schema
 ```sql
 -- Verify DefaultAccessLevel column exists
-SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_NAME = 'Documents' AND COLUMN_NAME = 'DefaultAccessLevel';
+SELECT column_name, data_type, character_maximum_length, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_name = 'Documents' AND column_name = 'DefaultAccessLevel';
 ```
 
 Expected result:
-| COLUMN_NAME | DATA_TYPE | CHARACTER_MAXIMUM_LENGTH | IS_NULLABLE | COLUMN_DEFAULT |
+| column_name | data_type | character_maximum_length | is_nullable | column_default |
 |-------------|-----------|-------------------------|-------------|----------------|
-| DefaultAccessLevel | nvarchar | 50 | NO | ('View') |
+| DefaultAccessLevel | character varying | 50 | NO | 'View' |
 
 ## Troubleshooting
 
@@ -171,9 +171,9 @@ Expected result:
 **Solution**: Increase command timeout in `Program.cs`:
 ```csharp
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(
+    options.UseNpgsql(
         connectionString,
-        sqlServerOptions => sqlServerOptions.CommandTimeout(300) // 5 minutes
+        npgsqlOptions => npgsqlOptions.CommandTimeout(300) // 5 minutes
     ));
 ```
 
@@ -218,14 +218,14 @@ dotnet ef database update
 ### Local Development
 ```json
 "ConnectionStrings": {
-  "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=LiveSyncAuthDb;Integrated Security=True;TrustServerCertificate=True;"
+  "DefaultConnection": "Host=localhost;Port=5432;Database=livesync;Username=devuser;Password=devpassword"
 }
 ```
 
-### AWS RDS
+### AWS RDS (PostgreSQL)
 ```json
 "ConnectionStrings": {
-  "DefaultConnection": "Server=livesync-db.xyz.us-east-1.rds.amazonaws.com;Database=LiveSyncAuthDb;User Id=admin;Password=SecurePassword123!;TrustServerCertificate=True;"
+  "DefaultConnection": "Host=livesync-db.xyz.us-east-1.rds.amazonaws.com;Port=5432;Database=livesync;Username=admin;Password=SecurePassword123!;SslMode=Require"
 }
 ```
 
@@ -248,3 +248,4 @@ The automatic database migration feature:
 - ? Production-ready with proper logging and error handling
 
 No manual `dotnet ef database update` commands needed! ??
+
