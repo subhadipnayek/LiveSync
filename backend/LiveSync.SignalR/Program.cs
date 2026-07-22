@@ -67,7 +67,7 @@ if (!string.IsNullOrWhiteSpace(redisConnectionString))
     builder.Services.AddSingleton<IDocumentStateService, RedisDocumentStateService>();
     signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
     {
-        options.Configuration.ChannelPrefix = "LiveSync";
+        options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Pattern("LiveSync");
     });
 }
 else

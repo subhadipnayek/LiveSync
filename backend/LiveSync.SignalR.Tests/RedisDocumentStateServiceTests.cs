@@ -20,7 +20,7 @@ public class RedisDocumentStateServiceTests : IAsyncLifetime
     private string DocId(string name) => $"test-{_testRunId}-{name}";
     private string ConnId(string name) => $"conn-{_testRunId}-{name}";
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var connectionString = GetRedisConnectionString();
         var options = ConfigurationOptions.Parse(connectionString);
@@ -30,7 +30,7 @@ public class RedisDocumentStateServiceTests : IAsyncLifetime
         _sut = new RedisDocumentStateService(_redis);
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         // Clean up all keys created during this test run
         var server = _redis.GetServer(_redis.GetEndPoints()[0]);
