@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36705.20
+# Visual Studio Version 18
+VisualStudioVersion = 18.7.11911.148 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveSync.SignalR", "LiveSync.SignalR\LiveSync.SignalR.csproj", "{B589FAE9-C8CF-42F5-94FE-7F2F4BDBAC0E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveSync.Api", "LiveSync.Api\LiveSync.Api.csproj", "{CD52F14B-4958-4D10-9367-C30EA9E06BAB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveSync.SignalR.Tests", "LiveSync.SignalR.Tests\LiveSync.SignalR.Tests.csproj", "{97A6A6EA-0EA4-40F0-9106-EB25704C982D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LiveSync.AppHost", "LiveSync.AppHost\LiveSync.AppHost.csproj", "{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -55,6 +57,18 @@ Global
 		{97A6A6EA-0EA4-40F0-9106-EB25704C982D}.Release|x64.Build.0 = Release|Any CPU
 		{97A6A6EA-0EA4-40F0-9106-EB25704C982D}.Release|x86.ActiveCfg = Release|Any CPU
 		{97A6A6EA-0EA4-40F0-9106-EB25704C982D}.Release|x86.Build.0 = Release|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Debug|x64.Build.0 = Debug|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Debug|x86.Build.0 = Debug|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Release|x64.ActiveCfg = Release|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Release|x64.Build.0 = Release|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Release|x86.ActiveCfg = Release|Any CPU
+		{4A2148CE-BCE4-4FCF-8F44-93085930EE2A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
