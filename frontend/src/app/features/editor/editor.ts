@@ -9,7 +9,6 @@ import {
   OnInit,
   DestroyRef,
   input,
-  ChangeDetectionStrategy
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -24,7 +23,6 @@ import { DocumentDto, DocumentService } from '../../services/document.service';
   standalone: true,
   imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './editor.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './editor.scss',
 })
 export class Editor implements OnInit {
@@ -439,7 +437,7 @@ export class Editor implements OnInit {
     this.isEditable.set(false);
     this.accessLevel.set('View');
     this.permissionRevokedMessage.set(
-      'Your edit access has been revoked. You can still view real-time updates but cannot make changes.'
+      'Your edit access has been revoked. You can still view real-time updates but cannot make changes.',
     );
     this.showPermissionBanner.set(true);
 

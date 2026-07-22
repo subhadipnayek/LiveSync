@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -10,7 +10,6 @@ import { AuthService } from '../../services/auth.service';
   standalone: true,
   imports: [RouterModule, MatButtonModule, MatToolbarModule, MatIconModule],
   templateUrl: './landing.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './landing.scss',
 })
 export class Landing {

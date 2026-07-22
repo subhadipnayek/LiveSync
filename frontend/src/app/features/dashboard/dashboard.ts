@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
@@ -34,7 +34,6 @@ import { Editor } from '../editor/editor';
     DatePipe,
   ],
   templateUrl: './dashboard.html',
-  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './dashboard.scss',
 })
 export class Dashboard implements OnInit {
@@ -207,7 +206,7 @@ export class Dashboard implements OnInit {
       await this.documentService.updateShareCodeAccessLevel(doc.id, this.defaultAccessLevel());
       // Update local state
       const updatedDocs = this.myDocuments().map((d) =>
-        d.id === doc.id ? { ...d, defaultAccessLevel: this.defaultAccessLevel() } : d
+        d.id === doc.id ? { ...d, defaultAccessLevel: this.defaultAccessLevel() } : d,
       );
       this.myDocuments.set(updatedDocs);
     } catch (error) {
