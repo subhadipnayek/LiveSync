@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+	<TargetFramework>net8.0</TargetFramework>
+	<ImplicitUsings>enable</ImplicitUsings>
+	<Nullable>enable</Nullable>
+	<IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+	<PackageReference Include="xunit" Version="2.9.2" />
+	<PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+	<PackageReference Include="StackExchange.Redis" Version="2.8.31" />
+	<PackageReference Include="Npgsql" Version="8.0.4" />
+	<PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
+	<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
+	<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<None Include="..\LiveSync.SignalR\appsettings.json" Link="LiveSync.SignalR.appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+	<None Include="..\LiveSync.SignalR\appsettings.Development.json" Link="LiveSync.SignalR.appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
+	<None Include="..\LiveSync.Api\appsettings.json" Link="LiveSync.Api.appsettings.json" CopyToOutputDirectory="PreserveNewest" />
+	<None Include="..\LiveSync.Api\appsettings.Development.json" Link="LiveSync.Api.appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

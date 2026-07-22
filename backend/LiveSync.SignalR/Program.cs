@@ -53,10 +53,19 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // Add services to the container.
-builder.Services.AddSignalR(options =>
+var signalRBuilder = builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = 1024 * 1024;
 });
+
+var redisConnectionString = builder.Configuration["Redis:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(redisConnectionString))
+{
+    signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
+    {
+        options.Configuration.ChannelPrefix = "LiveSync";
+    });
+}
 
 var apiBaseUrl = builder.Configuration["Services:ApiBaseUrl"]
     ?? throw new InvalidOperationException("Services:ApiBaseUrl is required.");
