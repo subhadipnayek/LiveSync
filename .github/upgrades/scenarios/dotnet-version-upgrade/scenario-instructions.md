@@ -25,3 +25,11 @@
 - Apply project and package updates before restore/build validation.
 - Run full solution validation after upgrade changes complete.
 - Keep commit cadence at task boundaries unless user changes commit strategy.
+
+## User Preferences
+### Technical Preferences
+- Proceed with Aspire integration for this solution.
+- Keep framework compatibility updates consistent across all projects in the solution.
+
+## Key Decisions Log
+- 2026-07-22: User approved moving forward with Aspire integration after .NET 10 upgrade validation.
