@@ -1,6 +1,7 @@
 import { Injectable, signal, DestroyRef, inject } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { AuthService } from './auth.service';
+import { appEndpoints } from '../app-endpoints';
 
 @Injectable({
   providedIn: 'root',
@@ -31,10 +32,10 @@ export class SignalRService {
       this.hubConnection.stop();
     });
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('https://localhost:7000/hubs/editor', {
+      .withUrl(`${appEndpoints.signalRBaseUrl}/hubs/editor`, {
         accessTokenFactory: () => this.authService.token() || '',
       }) // .NET API URL with JWT token
-      .withAutomaticReconnect()
+      .withAutomaticReconnect([0, 2000, 10000, 30000])
       .build();
 
     // Track connection state changes
@@ -42,8 +43,18 @@ export class SignalRService {
       this.connectionState.set('reconnecting');
     });
 
-    this.hubConnection.onreconnected(() => {
+    this.hubConnection.onreconnected(async () => {
       this.connectionState.set('connected');
+      if (this.currentDocumentId) {
+        try {
+          await this.hubConnection.invoke('JoinDocument', this.currentDocumentId);
+          this.isJoined = true;
+        } catch (error) {
+          this.isJoined = false;
+          this.connectionState.set('error');
+          console.error('Failed to rejoin document after reconnect:', error);
+        }
+      }
     });
 
     this.hubConnection.onclose(() => {
@@ -101,9 +112,9 @@ export class SignalRService {
       await this.leaveDocument(this.currentDocumentId);
     }
 
+    await this.hubConnection.invoke('JoinDocument', docId);
     this.currentDocumentId = docId;
     this.isJoined = true;
-    await this.hubConnection.invoke('JoinDocument', docId);
     console.log('Joined document:', docId);
   }
 
@@ -120,17 +131,19 @@ export class SignalRService {
     console.log('Left document:', docId);
   }
 
-  sendUpdate(docId: string, content: string) {
-    this.hubConnection.invoke('SendContentUpdate', docId, content);
+  sendUpdate(docId: string, content: string): Promise<void> {
+    return this.hubConnection.invoke('SendContentUpdate', docId, content);
   }
 
   addContentUpdateListener() {
+    this.hubConnection.off('ReceiveContentUpdate');
     this.hubConnection.on('ReceiveContentUpdate', (content: string) => {
       this.contentUpdate.set(content);
     });
   }
 
   addUserJoinedListener() {
+    this.hubConnection.off('UserJoined');
     this.hubConnection.on('UserJoined', (connectionId: string, count: number) => {
       this.userJoined.set(connectionId);
       this.activeUserCount.set(count);
@@ -139,6 +152,7 @@ export class SignalRService {
   }
 
   addUserLeftListener() {
+    this.hubConnection.off('UserLeft');
     this.hubConnection.on('UserLeft', (connectionId: string, count: number) => {
       this.userLeft.set(connectionId);
       this.activeUserCount.set(count);
@@ -146,11 +160,12 @@ export class SignalRService {
     });
   }
 
-  sendCursorPosition(docId: string, position: number) {
-    this.hubConnection.invoke('SendCursorPosition', docId, position);
+  sendCursorPosition(docId: string, position: number): Promise<void> {
+    return this.hubConnection.invoke('SendCursorPosition', docId, position);
   }
 
   addCursorUpdateListener() {
+    this.hubConnection.off('ReceiveCursorUpdate');
     this.hubConnection.on(
       'ReceiveCursorUpdate',
       (userId: string, position: number, color: string) => {

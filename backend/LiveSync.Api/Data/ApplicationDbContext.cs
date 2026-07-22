@@ -33,6 +33,8 @@ namespace LiveSync.Api.Data
                 entity.Property(e => e.Content).IsRequired();
                 entity.Property(e => e.OwnerId).IsRequired();
                 entity.Property(e => e.ShareCode).HasMaxLength(50);
+                entity.HasIndex(e => e.OwnerId);
+                entity.HasIndex(e => e.ShareCode).IsUnique();
                 entity.HasOne(e => e.Owner)
                     .WithMany()
                     .HasForeignKey(e => e.OwnerId)
@@ -49,6 +51,7 @@ namespace LiveSync.Api.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.DocumentId).IsRequired();
                 entity.Property(e => e.UserId).IsRequired();
+                entity.HasIndex(e => new { e.DocumentId, e.UserId }).IsUnique();
                 entity.HasOne(e => e.Document)
                     .WithMany(d => d.SharedWith)
                     .HasForeignKey(e => e.DocumentId)

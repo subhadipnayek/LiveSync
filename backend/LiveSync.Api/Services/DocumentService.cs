@@ -2,6 +2,7 @@ using LiveSync.Api.Data;
 using LiveSync.Api.DTOs;
 using LiveSync.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 
 namespace LiveSync.Api.Services
 {
@@ -21,6 +22,7 @@ namespace LiveSync.Api.Services
             try
             {
                 var document = await _context.Documents
+                    .AsNoTracking()
                     .Include(d => d.Owner)
                     .Include(d => d.SharedWith)
                     .ThenInclude(s => s.User)
@@ -42,11 +44,26 @@ namespace LiveSync.Api.Services
             }
         }
 
+        public Task<string?> GetAccessLevelAsync(string documentId, string userId)
+        {
+            return _context.Documents
+                .AsNoTracking()
+                .Where(d => d.Id == documentId)
+                .Select(d => d.OwnerId == userId
+                    ? "Edit"
+                    : d.SharedWith
+                        .Where(s => s.UserId == userId)
+                        .Select(s => s.AccessLevel ?? "View")
+                        .FirstOrDefault())
+                .SingleOrDefaultAsync();
+        }
+
         public async Task<List<DocumentDto>> GetUserDocumentsAsync(string userId)
         {
             try
             {
                 var documents = await _context.Documents
+                    .AsNoTracking()
                     .Include(d => d.Owner)
                     .Include(d => d.SharedWith)
                     .Where(d => d.OwnerId == userId)
@@ -67,6 +84,7 @@ namespace LiveSync.Api.Services
             try
             {
                 var sharedDocs = await _context.SharedDocuments
+                    .AsNoTracking()
                     .Include(s => s.Document)
                     .ThenInclude(d => d!.Owner)
                     .Include(s => s.User)
@@ -126,14 +144,16 @@ namespace LiveSync.Api.Services
                 if (document == null)
                     return null;
 
-                // Check if user has edit access (owner or shared with Edit permission)
-                if (!await HasEditAccessAsync(documentId, userId))
+                // Avoid a second database query after loading the access relationships.
+                if (document.OwnerId != userId &&
+                    !document.SharedWith.Any(s => s.UserId == userId && s.AccessLevel == "Edit"))
                     return null;
 
-                if (!string.IsNullOrEmpty(request.Title))
-                    document.Title = request.Title;
+                if (request.Title is not null)
+                    document.Title = request.Title.Trim();
 
-                if (!string.IsNullOrEmpty(request.Content))
+                // Empty content is valid: clearing a document must be persisted.
+                if (request.Content is not null)
                     document.Content = request.Content;
 
                 document.UpdatedAt = DateTime.UtcNow;
@@ -213,7 +233,14 @@ namespace LiveSync.Api.Services
                 if (document == null || document.OwnerId != userId)
                     return null;
 
-                document.ShareCode = GenerateShareCode();
+                string shareCode;
+                do
+                {
+                    shareCode = GenerateShareCode();
+                }
+                while (await _context.Documents.AnyAsync(d => d.ShareCode == shareCode));
+
+                document.ShareCode = shareCode;
                 await _context.SaveChangesAsync();
                 return MapToDto(document);
             }
@@ -251,6 +278,9 @@ namespace LiveSync.Api.Services
                     .FirstOrDefaultAsync(d => d.ShareCode == shareCode);
 
                 if (document == null)
+                    return false;
+
+                if (document.OwnerId == userId)
                     return false;
 
                 // Check if user already has access
@@ -314,21 +344,12 @@ namespace LiveSync.Api.Services
         {
             try
             {
-                // Check if user is the owner
-                var document = await _context.Documents.FindAsync(documentId);
-                if (document?.OwnerId == userId)
-                    return true;
-
-                // Check if user has shared access with Edit permission
-                var sharedDoc = await _context.SharedDocuments
-                    .FirstOrDefaultAsync(s => s.DocumentId == documentId && s.UserId == userId);
-
-                return sharedDoc?.AccessLevel == "Edit";
+                return await GetAccessLevelAsync(documentId, userId) == "Edit";
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking edit access");
-                return false;
+                throw;
             }
         }
 
@@ -389,10 +410,7 @@ namespace LiveSync.Api.Services
         public string GenerateShareCode()
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-            var random = new Random();
-            return new string(Enumerable.Range(0, 8)
-                .Select(_ => chars[random.Next(chars.Length)])
-                .ToArray());
+            return RandomNumberGenerator.GetString(chars, 10);
         }
 
         private DocumentDto MapToDto(Document document)

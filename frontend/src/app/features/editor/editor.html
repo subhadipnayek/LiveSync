@@ -40,10 +40,13 @@
   </mat-toolbar>
 
   <!-- Permission Revoked Banner -->
-  @if (permissionRevokedMessage()) {
+  @if (showPermissionBanner()) {
   <div class="permission-revoked-banner">
     <mat-icon>warning</mat-icon>
     <span>{{ permissionRevokedMessage() }}</span>
+    <button mat-icon-button (click)="dismissPermissionBanner()" class="close-banner-btn">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
   }
 

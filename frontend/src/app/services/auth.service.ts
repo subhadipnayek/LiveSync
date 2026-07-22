@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { appEndpoints } from '../app-endpoints';
 
 export interface UserInfo {
   id: string;
@@ -50,7 +51,7 @@ export class AuthService {
   readonly isInitialized = signal(false);
   readonly token = signal<string | null>(localStorage.getItem('auth_token'));
 
-  private readonly apiUrl = 'https://localhost:7001/api/auth';
+  private readonly apiUrl = `${appEndpoints.apiBaseUrl}/api/auth`;
 
   async initializeAuth(): Promise<void> {
     const token = localStorage.getItem('auth_token');

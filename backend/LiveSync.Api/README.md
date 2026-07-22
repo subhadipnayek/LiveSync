@@ -76,9 +76,20 @@ Refresh an expired JWT token (not yet fully implemented).
 
 ## Configuration
 
-### appsettings.json
+### Required settings
+
+Configure secrets with environment variables or user-secrets instead of committing them to `appsettings.json`.
+
 ```json
 {
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=livesync;Username=devuser;Password=devpassword"
+  },
+  "Database": {
+    "EnsureCreatedOnStartup": true,
+    "MaintenanceDatabase": "postgres",
+    "MigrateOnStartup": true
+  },
   "Jwt": {
     "Secret": "YourSuperSecretKeyForJWT_ChangeThisInProduction_32Characters!",
     "Issuer": "LiveSyncAuthAPI",
@@ -88,38 +99,18 @@ Refresh an expired JWT token (not yet fully implemented).
 }
 ```
 
-**?? Important:** Change the JWT Secret in production!
+**Important:** `Jwt:Secret` is required at startup and must be at least 32 bytes. Use a strong production value.
 
 ## Database
 
-Currently using **In-Memory Database** for development. To switch to a persistent database:
+The API now uses **PostgreSQL** through Npgsql/Entity Framework Core.
 
-### SQL Server
-1. Install package:
-```bash
-dotnet add package Microsoft.EntityFrameworkCore.SqlServer
-```
+For local development, point the API at the shared `postgres-dev` server. The
+connection string targets LiveSync's own database, `livesync`; startup connects
+to the maintenance database, `postgres`, creates `livesync` when missing, and
+then applies all EF migrations.
 
-2. Update `Program.cs`:
-```csharp
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-```
-
-3. Add connection string to `appsettings.json`:
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=LiveSyncAuthDb;Trusted_Connection=True;"
-  }
-}
-```
-
-4. Run migrations:
-```bash
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-```
+For production cutover notes, environment variables, and existing SQL Server data migration caveats, see `../../POSTGRESQL_MIGRATION.md`.
 
 ## Running the Service
 

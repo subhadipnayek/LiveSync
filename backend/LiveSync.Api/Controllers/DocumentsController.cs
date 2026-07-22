@@ -77,6 +77,20 @@ namespace LiveSync.Api.Controllers
             return Ok(document);
         }
 
+        /// <summary>Get the current user's effective access without loading document content.</summary>
+        [HttpGet("{id}/access")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetDocumentAccess(string id)
+        {
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var accessLevel = await _documentService.GetAccessLevelAsync(id, userId);
+            return accessLevel is null ? NotFound() : Ok(new { accessLevel });
+        }
+
         /// <summary>
         /// Create a new document
         /// </summary>

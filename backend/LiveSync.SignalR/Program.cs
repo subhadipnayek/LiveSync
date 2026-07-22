@@ -1,4 +1,5 @@
 using LiveSync.Hubs;
+using LiveSync.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -6,7 +7,10 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add JWT Authentication (for validating tokens from AuthAPI)
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "YourSuperSecretKeyForJWT_ChangeThisInProduction_32Characters!";
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+    ?? throw new InvalidOperationException("Jwt:Secret is required.");
+if (Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+    throw new InvalidOperationException("Jwt:Secret must be at least 32 bytes.");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "LiveSyncAuthAPI";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "LiveSyncClient";
 
@@ -25,7 +29,8 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtIssuer,
         ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        ClockSkew = TimeSpan.FromMinutes(1)
     };
 
     // Allow JWT authentication for SignalR
@@ -48,15 +53,30 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // Add services to the container.
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = 1024 * 1024;
+});
 
+var apiBaseUrl = builder.Configuration["Services:ApiBaseUrl"]
+    ?? throw new InvalidOperationException("Services:ApiBaseUrl is required.");
+builder.Services.AddHttpClient<DocumentAccessClient>(client =>
+{
+    client.BaseAddress = new Uri(apiBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(5);
+});
+
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ClientPermission", policy =>
     {
+        if (allowedOrigins.Length > 0)
+            policy.WithOrigins(allowedOrigins);
+
         policy.AllowAnyHeader()
               .AllowAnyMethod()
-              .WithOrigins("http://localhost:4200") // Angular URL
               .AllowCredentials(); // Required for SignalR
     });
 });
@@ -66,12 +86,11 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseCors("ClientPermission");
-app.MapHub<EditorHub>("/hubs/editor");
-
-// Configure the HTTP request pipeline.
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHub<EditorHub>("/hubs/editor");
 
 app.Run();

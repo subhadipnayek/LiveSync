@@ -22,6 +22,8 @@ _ReSharper*/
 
 ## Build / config
 appsettings.*.json
+!LiveSync.Api/appsettings.Development.json
+!LiveSync.SignalR/appsettings.Development.json
 secret*.json
 *.env
 

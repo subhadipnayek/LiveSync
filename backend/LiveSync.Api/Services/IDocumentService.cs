@@ -6,6 +6,7 @@ namespace LiveSync.Api.Services
     {
         // Document operations
         Task<DocumentDto?> GetDocumentByIdAsync(string documentId, string userId);
+        Task<string?> GetAccessLevelAsync(string documentId, string userId);
         Task<List<DocumentDto>> GetUserDocumentsAsync(string userId);
         Task<List<SharedDocumentDto>> GetSharedDocumentsAsync(string userId);
         Task<DocumentDto> CreateDocumentAsync(string userId, CreateDocumentRequest request);

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { appEndpoints } from '../app-endpoints';
 
 export interface DocumentDto {
   id: string;
@@ -47,12 +48,16 @@ export interface AddSharedDocumentRequest {
   accessLevel?: string;
 }
 
+export interface DocumentAccessResponse {
+  accessLevel: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class DocumentService {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = 'https://localhost:7001/api/documents';
+  private readonly apiUrl = `${appEndpoints.apiBaseUrl}/api/documents`;
 
   async getMyDocuments(): Promise<DocumentDto[]> {
     try {
@@ -84,6 +89,18 @@ export class DocumentService {
       return response;
     } catch (error) {
       console.error('Error fetching document:', error);
+      throw error;
+    }
+  }
+
+  async getAccessLevel(id: string): Promise<string> {
+    try {
+      const response = await firstValueFrom(
+        this.http.get<DocumentAccessResponse>(`${this.apiUrl}/${id}/access`)
+      );
+      return response.accessLevel;
+    } catch (error) {
+      console.error('Error fetching document access:', error);
       throw error;
     }
   }

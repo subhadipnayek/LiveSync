@@ -54,6 +54,7 @@ export class Editor implements OnInit {
   readonly isEditable = signal(true);
   readonly accessLevel = signal<string>('Edit');
   readonly permissionRevokedMessage = signal<string>('');
+  readonly showPermissionBanner = signal(false);
 
   // Private state
   private isUpdatingFromRemote = false;
@@ -107,18 +108,9 @@ export class Editor implements OnInit {
       console.log('Loading document content:', content);
       this.codeSignal.set(content);
 
-      // Check if document is shared and get access level
-      const sharedDocs = await this.documentService.getSharedDocuments();
-      const sharedDoc = sharedDocs.find((d) => d.documentId === id);
-
-      if (sharedDoc) {
-        this.accessLevel.set(sharedDoc.accessLevel);
-        this.isEditable.set(sharedDoc.accessLevel === 'Edit');
-      } else {
-        // User is the owner, always editable
-        this.accessLevel.set('Edit');
-        this.isEditable.set(true);
-      }
+      const accessLevel = await this.documentService.getAccessLevel(id);
+      this.accessLevel.set(accessLevel);
+      this.isEditable.set(accessLevel === 'Edit');
 
       // Join the document for real-time collaboration
       await this.signalRService.startConnection();
@@ -378,7 +370,14 @@ export class Editor implements OnInit {
     // Set new timer for 150ms debounce (real-time)
     this.debounceTimer = setTimeout(() => {
       if (this.signalRService.connectionState() === 'connected') {
-        this.signalRService.sendUpdate(this.docId(), value);
+        void this.signalRService.sendUpdate(this.docId(), value).catch((error) => {
+          console.error('Error sending real-time update:', error);
+
+          const message = error?.message?.toLowerCase?.() ?? '';
+          if (message.includes('edit access') || message.includes('forbidden')) {
+            this.handlePermissionRevoked();
+          }
+        });
       } else {
         console.warn('Not connected, buffering update...');
       }
@@ -429,6 +428,10 @@ export class Editor implements OnInit {
     }
   }
 
+  dismissPermissionBanner(): void {
+    this.showPermissionBanner.set(false);
+  }
+
   private handlePermissionRevoked(): void {
     // Update the UI to reflect read-only mode
     this.isEditable.set(false);
@@ -436,21 +439,14 @@ export class Editor implements OnInit {
     this.permissionRevokedMessage.set(
       'Your edit access has been revoked. You can still view real-time updates but cannot make changes.'
     );
+    this.showPermissionBanner.set(true);
 
-    // Make the textarea read-only
-    const textarea = this.codeTextarea()?.nativeElement;
-    if (textarea) {
-      textarea.setAttribute('readonly', 'true');
-      textarea.style.cursor = 'not-allowed';
-      textarea.style.backgroundColor = '#f5f5f5';
-    }
+    // The textarea readonly state is already handled by the template binding
+    // No need to manually set styles - let the existing view-only CSS handle it
 
     // Optionally: You can keep the SignalR connection to continue viewing updates
     // or disconnect if you prefer:
     // await this.signalRService.leaveDocument(this.docId());
-
-    // Show an alert to the user
-    alert('Your edit access has been revoked. The document is now read-only.');
   }
 
   private async setupSignalR() {
@@ -458,27 +454,6 @@ export class Editor implements OnInit {
     this.signalRService.addContentUpdateListener();
     this.signalRService.addUserJoinedListener();
     this.signalRService.addUserLeftListener();
-
-    try {
-      await this.signalRService.startConnection();
-
-      // Wait for connection to be ready
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      if (this.signalRService.connectionState() === 'connected') {
-        this.signalRService.joinDocument(this.docId());
-        console.log(`Joined document: ${this.docId()}`);
-      } else {
-        console.warn('Connection not fully established, retrying...');
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        if (this.signalRService.connectionState() === 'connected') {
-          this.signalRService.joinDocument(this.docId());
-        }
-      }
-    } catch (err) {
-      console.error('Failed to establish connection:', err);
-    }
   }
 
   toggleTheme() {
