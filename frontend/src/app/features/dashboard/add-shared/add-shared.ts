@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DatePipe, SlicePipe } from '@angular/common';
@@ -9,6 +9,7 @@ import { DocumentService } from '../../../services/document.service';
   standalone: true,
   imports: [FormsModule, DatePipe, SlicePipe],
   templateUrl: './add-shared.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './add-shared.scss',
 })
 export class AddShared {

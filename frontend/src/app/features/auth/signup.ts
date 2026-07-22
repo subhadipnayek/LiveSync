@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -23,6 +23,7 @@ import { AuthService } from '../../services/auth.service';
     MatProgressSpinnerModule,
   ],
   templateUrl: './signup.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './signup.scss',
 })
 export class SignUp {

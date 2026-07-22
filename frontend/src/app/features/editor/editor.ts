@@ -9,6 +9,7 @@ import {
   OnInit,
   DestroyRef,
   input,
+  ChangeDetectionStrategy
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -23,6 +24,7 @@ import { DocumentDto, DocumentService } from '../../services/document.service';
   standalone: true,
   imports: [MatToolbarModule, MatButtonModule, MatIconModule, MatTooltipModule],
   templateUrl: './editor.html',
+  changeDetection: ChangeDetectionStrategy.Eager,
   styleUrl: './editor.scss',
 })
 export class Editor implements OnInit {

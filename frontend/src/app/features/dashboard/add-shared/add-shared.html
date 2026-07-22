@@ -47,12 +47,12 @@
         <div class="preview-details">
           <p>
             <strong>Created:</strong>
-            {{ documentPreview()?.createdAt | date : 'medium' }}
+            {{ $safeNavigationMigration(documentPreview()?.createdAt) | date : 'medium' }}
           </p>
           @if (documentPreview()?.lastEditedAt) {
           <p>
             <strong>Last Updated:</strong>
-            {{ documentPreview()?.lastEditedAt | date : 'medium' }}
+            {{ $safeNavigationMigration(documentPreview()?.lastEditedAt) | date : 'medium' }}
           </p>
           }
           <p>
@@ -61,7 +61,7 @@
           <div class="content-preview">
             {{
               documentPreview()?.content
-                ? (documentPreview()?.content | slice : 0 : 200) + '...'
+                ? ($safeNavigationMigration(documentPreview()?.content) | slice : 0 : 200) + '...'
                 : '(Empty document)'
             }}
           </div>

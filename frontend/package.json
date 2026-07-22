@@ -24,15 +24,15 @@
   "private": true,
   "dependencies": {
     "@angular/cdk": "^20.2.14",
-    "@angular/common": "^21.2.18",
-    "@angular/compiler": "^21.2.18",
-    "@angular/core": "^21.2.18",
-    "@angular/forms": "^21.2.18",
+    "@angular/common": "^22.0.8",
+    "@angular/compiler": "^22.0.8",
+    "@angular/core": "^22.0.8",
+    "@angular/forms": "^22.0.8",
     "@angular/material": "^20.2.14",
-    "@angular/platform-browser": "^21.2.18",
-    "@angular/platform-server": "^21.2.18",
-    "@angular/router": "^21.2.18",
-    "@angular/ssr": "^21.2.19",
+    "@angular/platform-browser": "^22.0.8",
+    "@angular/platform-server": "^22.0.8",
+    "@angular/router": "^22.0.8",
+    "@angular/ssr": "^22.0.7",
     "@microsoft/signalr": "^10.0.0",
     "@types/debounce": "^1.2.4",
     "express": "^5.1.0",
@@ -40,18 +40,19 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@angular/build": "^21.2.19",
-    "@angular/cli": "^21.2.19",
-    "@angular/compiler-cli": "^21.2.18",
+    "@angular/build": "^22.0.7",
+    "@angular/cli": "^22.0.7",
+    "@angular/compiler-cli": "^22.0.8",
     "@types/express": "^5.0.1",
     "@types/jasmine": "~5.1.0",
     "@types/node": "^20.17.19",
+    "istanbul-lib-instrument": "^6.0.3",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   }
 }
