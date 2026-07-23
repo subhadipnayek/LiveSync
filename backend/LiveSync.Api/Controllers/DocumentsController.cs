@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using LiveSync.Api.DTOs;
 using LiveSync.Api.Services;
+using LiveSync.Execution.Contracts;
 using System.Security.Claims;
 
 namespace LiveSync.Api.Controllers
@@ -61,11 +62,12 @@ namespace LiveSync.Api.Controllers
         /// Get the languages currently available for sandbox execution
         /// </summary>
         [HttpGet("execution-languages")]
-        [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(IReadOnlyList<ExecutionLanguageDescriptor>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public ActionResult<List<string>> GetExecutionLanguages()
+        public async Task<ActionResult<IReadOnlyList<ExecutionLanguageDescriptor>>> GetExecutionLanguages()
         {
-            return Ok(new List<string> { "csharp" });
+            var languages = await _documentService.GetExecutionLanguagesAsync();
+            return Ok(languages);
         }
 
         /// <summary>

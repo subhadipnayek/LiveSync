@@ -12,9 +12,15 @@ var postgresDb = postgres.AddDatabase("DefaultConnection", "livesync");
 var redis = builder.AddRedis("redis")
     .WithDataVolume();
 
+// Sandbox execution service — used by LiveSync.Api for isolated code execution.
+var sandbox = builder.AddProject<Projects.LiveSync_Sandbox>("sandbox");
+
 var api = builder.AddProject<Projects.LiveSync_Api>("api")
     .WithReference(postgresDb)
     .WaitFor(postgresDb)
+    .WithEnvironment("Services__SandboxBaseUrl", sandbox.GetEndpoint("http"))
+    .WithReference(sandbox)
+    .WaitFor(sandbox)
     .WithExternalHttpEndpoints();
 
 // SignalR depends on both Redis and the Api service. Existing config keys

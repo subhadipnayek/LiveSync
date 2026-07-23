@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\LiveSync.Api\LiveSync.Api.csproj" />
     <ProjectReference Include="..\LiveSync.SignalR\LiveSync.SignalR.csproj" />
+    <ProjectReference Include="..\LiveSync.Sandbox\LiveSync.Sandbox.csproj" />
   </ItemGroup>
 
 </Project>

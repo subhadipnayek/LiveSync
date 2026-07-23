@@ -80,6 +80,13 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 
+var sandboxBaseUrl = builder.Configuration["Services:SandboxBaseUrl"]
+    ?? throw new InvalidOperationException("Services:SandboxBaseUrl is required.");
+builder.Services.AddHttpClient<ISandboxExecutionClient, SandboxExecutionClient>(client =>
+{
+    client.BaseAddress = new Uri(sandboxBaseUrl.EndsWith("/") ? sandboxBaseUrl : $"{sandboxBaseUrl}/");
+});
+
 // Add CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? Array.Empty<string>();

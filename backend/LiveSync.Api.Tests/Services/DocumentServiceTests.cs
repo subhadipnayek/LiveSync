@@ -2,6 +2,7 @@ using LiveSync.Api.Data;
 using LiveSync.Api.DTOs;
 using LiveSync.Api.Models;
 using LiveSync.Api.Services;
+using LiveSync.Execution.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -88,7 +89,24 @@ public class DocumentServiceTests
     }
 
     [Fact]
-    public async Task ExecuteDocumentAsync_ReturnsNotImplementedStub_ForOwner()
+    public async Task GetExecutionLanguagesAsync_ReturnsSandboxLanguages()
+    {
+        await using var context = CreateContext();
+        var sandboxClient = new FakeSandboxExecutionClient
+        {
+            Languages = [new ExecutionLanguageDescriptor { Name = "csharp", DisplayName = "C#" }]
+        };
+        var service = CreateService(context, sandboxClient);
+
+        var languages = await service.GetExecutionLanguagesAsync();
+
+        Assert.Single(languages);
+        Assert.Equal("csharp", languages[0].Name);
+        Assert.Equal("C#", languages[0].DisplayName);
+    }
+
+    [Fact]
+    public async Task ExecuteDocumentAsync_ReturnsSandboxResponse_ForOwner()
     {
         await using var context = CreateContext();
         context.Documents.Add(new Document
@@ -100,19 +118,38 @@ public class DocumentServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = CreateService(context);
+        var sandboxClient = new FakeSandboxExecutionClient
+        {
+            Response = new SandboxExecutionResponse
+            {
+                Language = "csharp",
+                Status = "Succeeded",
+                IsSuccess = true,
+                Message = "Execution completed successfully.",
+                StandardOutput = "Hello\r\n",
+                RequestedAt = DateTime.UtcNow,
+                CompletedAt = DateTime.UtcNow
+            }
+        };
+
+        var service = CreateService(context, sandboxClient);
 
         var result = await service.ExecuteDocumentAsync("doc-4", "owner-1", new ExecuteDocumentRequest
         {
-            Language = "CS"
+            Language = "CS",
+            StandardInput = "sample input"
         });
 
         Assert.NotNull(result);
         Assert.Equal("doc-4", result.DocumentId);
-        Assert.Equal("cs", result.Language);
-        Assert.Equal("NotImplemented", result.Status);
-        Assert.False(result.IsSuccess);
-        Assert.Contains("Sandbox execution is not implemented yet", result.Message);
+        Assert.Equal("csharp", result.Language);
+        Assert.Equal("Succeeded", result.Status);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Hello\r\n", result.StandardOutput);
+        Assert.NotNull(sandboxClient.LastRequest);
+        Assert.Equal("csharp", sandboxClient.LastRequest!.Language);
+        Assert.Equal("Console.WriteLine(\"Hello\");", sandboxClient.LastRequest.Code);
+        Assert.Equal("sample input", sandboxClient.LastRequest.StandardInput);
     }
 
     [Fact]
@@ -135,7 +172,8 @@ public class DocumentServiceTests
         });
         await context.SaveChangesAsync();
 
-        var service = CreateService(context);
+        var sandboxClient = new FakeSandboxExecutionClient();
+        var service = CreateService(context, sandboxClient);
 
         var result = await service.ExecuteDocumentAsync("doc-5", "user-2", new ExecuteDocumentRequest
         {
@@ -143,6 +181,7 @@ public class DocumentServiceTests
         });
 
         Assert.Null(result);
+        Assert.Null(sandboxClient.LastRequest);
     }
 
     [Fact]
@@ -166,8 +205,36 @@ public class DocumentServiceTests
         return new ApplicationDbContext(options);
     }
 
-    private static DocumentService CreateService(ApplicationDbContext context)
+    private static DocumentService CreateService(ApplicationDbContext context, FakeSandboxExecutionClient? sandboxClient = null)
     {
-        return new DocumentService(context, NullLogger<DocumentService>.Instance);
+        return new DocumentService(context, sandboxClient ?? new FakeSandboxExecutionClient(), NullLogger<DocumentService>.Instance);
+    }
+
+    private sealed class FakeSandboxExecutionClient : ISandboxExecutionClient
+    {
+        public IReadOnlyList<ExecutionLanguageDescriptor> Languages { get; set; } = [];
+
+        public SandboxExecutionResponse Response { get; set; } = new()
+        {
+            Language = "csharp",
+            Status = "Succeeded",
+            IsSuccess = true,
+            Message = "Execution completed successfully.",
+            RequestedAt = DateTime.UtcNow,
+            CompletedAt = DateTime.UtcNow
+        };
+
+        public SandboxExecutionRequest? LastRequest { get; private set; }
+
+        public Task<IReadOnlyList<ExecutionLanguageDescriptor>> GetLanguagesAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Languages);
+        }
+
+        public Task<SandboxExecutionResponse> ExecuteAsync(SandboxExecutionRequest request, CancellationToken cancellationToken = default)
+        {
+            LastRequest = request;
+            return Task.FromResult(Response);
+        }
     }
 }

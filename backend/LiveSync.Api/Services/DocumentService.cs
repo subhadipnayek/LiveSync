@@ -1,6 +1,7 @@
 using LiveSync.Api.Data;
 using LiveSync.Api.DTOs;
 using LiveSync.Api.Models;
+using LiveSync.Execution.Contracts;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 
@@ -9,11 +10,16 @@ namespace LiveSync.Api.Services
     public class DocumentService : IDocumentService
     {
         private readonly ApplicationDbContext _context;
+        private readonly ISandboxExecutionClient _sandboxExecutionClient;
         private readonly ILogger<DocumentService> _logger;
 
-        public DocumentService(ApplicationDbContext context, ILogger<DocumentService> logger)
+        public DocumentService(
+            ApplicationDbContext context,
+            ISandboxExecutionClient sandboxExecutionClient,
+            ILogger<DocumentService> logger)
         {
             _context = context;
+            _sandboxExecutionClient = sandboxExecutionClient;
             _logger = logger;
         }
 
@@ -221,6 +227,19 @@ namespace LiveSync.Api.Services
             }
         }
 
+        public async Task<IReadOnlyList<ExecutionLanguageDescriptor>> GetExecutionLanguagesAsync()
+        {
+            try
+            {
+                return await _sandboxExecutionClient.GetLanguagesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting execution languages");
+                return [];
+            }
+        }
+
         public async Task<DocumentExecutionResponse?> ExecuteDocumentAsync(string documentId, string userId, ExecuteDocumentRequest request)
         {
             try
@@ -235,26 +254,41 @@ namespace LiveSync.Api.Services
                 if (!await HasEditAccessAsync(documentId, userId))
                     return null;
 
-                var requestedAt = DateTime.UtcNow;
-                var normalizedLanguage = request.Language.Trim().ToLowerInvariant();
+                var execution = await _sandboxExecutionClient.ExecuteAsync(new SandboxExecutionRequest
+                {
+                    Language = NormalizeExecutionLanguage(request.Language),
+                    Code = document.Content,
+                    StandardInput = request.StandardInput
+                });
 
                 return new DocumentExecutionResponse
                 {
                     DocumentId = document.Id,
-                    Language = normalizedLanguage,
-                    Status = "NotImplemented",
-                    IsSuccess = false,
-                    Message = "Sandbox execution is not implemented yet. Route this request to a dedicated sandbox service when the runner is added.",
-                    StandardOutput = null,
-                    StandardError = null,
-                    RequestedAt = requestedAt,
-                    CompletedAt = requestedAt
+                    Language = execution.Language,
+                    Status = execution.Status,
+                    IsSuccess = execution.IsSuccess,
+                    Message = execution.Message,
+                    StandardOutput = execution.StandardOutput,
+                    StandardError = execution.StandardError,
+                    RequestedAt = execution.RequestedAt,
+                    CompletedAt = execution.CompletedAt
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating document execution request");
-                return null;
+                _logger.LogError(ex, "Error executing document");
+                var timestamp = DateTime.UtcNow;
+                return new DocumentExecutionResponse
+                {
+                    DocumentId = documentId,
+                    Language = NormalizeExecutionLanguage(request.Language),
+                    Status = "Failed",
+                    IsSuccess = false,
+                    Message = "Sandbox execution request failed.",
+                    StandardError = ex.Message,
+                    RequestedAt = timestamp,
+                    CompletedAt = timestamp
+                };
             }
         }
 
@@ -448,6 +482,12 @@ namespace LiveSync.Api.Services
         {
             const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             return RandomNumberGenerator.GetString(chars, 10);
+        }
+
+        private static string NormalizeExecutionLanguage(string language)
+        {
+            var normalized = language.Trim().ToLowerInvariant();
+            return normalized == "cs" ? "csharp" : normalized;
         }
 
         private DocumentDto MapToDto(Document document)

@@ -1,4 +1,5 @@
 using LiveSync.Api.DTOs;
+using LiveSync.Execution.Contracts;
 
 namespace LiveSync.Api.Services
 {
@@ -13,6 +14,7 @@ namespace LiveSync.Api.Services
         Task<DocumentDto?> UpdateDocumentAsync(string documentId, string userId, UpdateDocumentRequest request);
         Task<bool> DeleteDocumentAsync(string documentId, string userId);
         Task<DocumentDto?> UpdateContentAsync(string documentId, string userId, DocumentContentUpdateRequest request);
+        Task<IReadOnlyList<ExecutionLanguageDescriptor>> GetExecutionLanguagesAsync();
         Task<DocumentExecutionResponse?> ExecuteDocumentAsync(string documentId, string userId, ExecuteDocumentRequest request);
 
         // Share operations
