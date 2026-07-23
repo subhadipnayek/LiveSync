@@ -221,6 +221,43 @@ namespace LiveSync.Api.Services
             }
         }
 
+        public async Task<DocumentExecutionResponse?> ExecuteDocumentAsync(string documentId, string userId, ExecuteDocumentRequest request)
+        {
+            try
+            {
+                var document = await _context.Documents
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(d => d.Id == documentId);
+
+                if (document == null)
+                    return null;
+
+                if (!await HasEditAccessAsync(documentId, userId))
+                    return null;
+
+                var requestedAt = DateTime.UtcNow;
+                var normalizedLanguage = request.Language.Trim().ToLowerInvariant();
+
+                return new DocumentExecutionResponse
+                {
+                    DocumentId = document.Id,
+                    Language = normalizedLanguage,
+                    Status = "NotImplemented",
+                    IsSuccess = false,
+                    Message = "Sandbox execution is not implemented yet. Route this request to a dedicated sandbox service when the runner is added.",
+                    StandardOutput = null,
+                    StandardError = null,
+                    RequestedAt = requestedAt,
+                    CompletedAt = requestedAt
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating document execution request");
+                return null;
+            }
+        }
+
         public async Task<DocumentDto?> GenerateShareCodeAsync(string documentId, string userId)
         {
             try

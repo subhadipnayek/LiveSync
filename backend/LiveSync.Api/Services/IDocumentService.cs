@@ -13,6 +13,7 @@ namespace LiveSync.Api.Services
         Task<DocumentDto?> UpdateDocumentAsync(string documentId, string userId, UpdateDocumentRequest request);
         Task<bool> DeleteDocumentAsync(string documentId, string userId);
         Task<DocumentDto?> UpdateContentAsync(string documentId, string userId, DocumentContentUpdateRequest request);
+        Task<DocumentExecutionResponse?> ExecuteDocumentAsync(string documentId, string userId, ExecuteDocumentRequest request);
 
         // Share operations
         Task<DocumentDto?> GenerateShareCodeAsync(string documentId, string userId);

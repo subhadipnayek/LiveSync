@@ -164,6 +164,35 @@ namespace LiveSync.Api.Controllers
         }
 
         /// <summary>
+        /// Create a sandbox execution request for a document
+        /// </summary>
+        [HttpPost("{id}/execute")]
+        [ProducesResponseType(typeof(DocumentExecutionResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<DocumentExecutionResponse>> ExecuteDocument(string id, [FromBody] ExecuteDocumentRequest request)
+        {
+            var userId = GetUserId();
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var hasEditAccess = await _documentService.HasEditAccessAsync(id, userId);
+            if (!hasEditAccess)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "You don't have edit access to this document" });
+
+            var execution = await _documentService.ExecuteDocumentAsync(id, userId, request);
+            if (execution == null)
+                return NotFound();
+
+            return Ok(execution);
+        }
+
+        /// <summary>
         /// Delete a document
         /// </summary>
         [HttpDelete("{id}")]

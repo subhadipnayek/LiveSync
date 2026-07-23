@@ -75,4 +75,27 @@ namespace LiveSync.Api.DTOs
         [Required]
         public string AccessLevel { get; set; } = string.Empty;
     }
+
+    public class ExecuteDocumentRequest
+    {
+        [Required]
+        [RegularExpression("^(csharp|cs)$", ErrorMessage = "Only C# execution is currently supported.")]
+        public string Language { get; set; } = "csharp";
+
+        [StringLength(4000)]
+        public string? StandardInput { get; set; }
+    }
+
+    public class DocumentExecutionResponse
+    {
+        public string DocumentId { get; set; } = string.Empty;
+        public string Language { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public bool IsSuccess { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? StandardOutput { get; set; }
+        public string? StandardError { get; set; }
+        public DateTime RequestedAt { get; set; }
+        public DateTime CompletedAt { get; set; }
+    }
 }
