@@ -42,12 +42,12 @@ export class SignIn {
       return;
     }
 
-    const success = await this.authService.signin(this.emailOrUsername(), this.password());
+    const result = await this.authService.signin(this.emailOrUsername(), this.password());
 
-    if (success) {
+    if (result.success) {
       this.router.navigate(['/dashboard']);
     } else {
-      this.errorMessage.set('Invalid email or password');
+      this.errorMessage.set(result.message || 'Invalid email or password');
     }
   }
 

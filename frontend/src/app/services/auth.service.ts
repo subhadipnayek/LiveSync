@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { appEndpoints } from '../app-endpoints';
@@ -36,6 +36,11 @@ export interface LoginRequest {
 export interface TokenResponse {
   token: string;
   user: UserInfo;
+}
+
+export interface AuthActionResult {
+  success: boolean;
+  message?: string;
 }
 
 @Injectable({
@@ -90,14 +95,14 @@ export class AuthService {
     }
   }
 
-  async signin(emailOrUsername: string, password: string): Promise<boolean> {
+  async signin(emailOrUsername: string, password: string): Promise<AuthActionResult> {
     this.isLoading.set(true);
     try {
       const response = await firstValueFrom(
         this.http.post<AuthResponse>(`${this.apiUrl}/login`, {
           emailOrUsername,
           password,
-        })
+        }),
       );
 
       if (response.success && response.token && response.user) {
@@ -105,12 +110,12 @@ export class AuthService {
         this.token.set(response.token);
         this.user.set(response.user);
         this.isAuthenticated.set(true);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, message: response.message || 'Sign in failed.' };
     } catch (error) {
       console.error('Sign in error:', error);
-      return false;
+      return { success: false, message: this.extractApiErrorMessage(error, 'Sign in failed.') };
     } finally {
       this.isLoading.set(false);
     }
@@ -121,8 +126,8 @@ export class AuthService {
     password: string,
     confirmPassword: string,
     firstName?: string,
-    lastName?: string
-  ): Promise<boolean> {
+    lastName?: string,
+  ): Promise<AuthActionResult> {
     this.isLoading.set(true);
     try {
       const response = await firstValueFrom(
@@ -132,7 +137,7 @@ export class AuthService {
           confirmPassword,
           firstName,
           lastName,
-        })
+        }),
       );
 
       if (response.success && response.token && response.user) {
@@ -140,12 +145,15 @@ export class AuthService {
         this.token.set(response.token);
         this.user.set(response.user);
         this.isAuthenticated.set(true);
-        return true;
+        return { success: true };
       }
-      return false;
+      return { success: false, message: response.message || 'Failed to create account.' };
     } catch (error) {
       console.error('Sign up error:', error);
-      return false;
+      return {
+        success: false,
+        message: this.extractApiErrorMessage(error, 'Failed to create account.'),
+      };
     } finally {
       this.isLoading.set(false);
     }
@@ -154,5 +162,43 @@ export class AuthService {
   logout(): void {
     this.clearAuth();
     this.router.navigate(['/']);
+  }
+
+  private extractApiErrorMessage(error: unknown, fallback: string): string {
+    const httpError = error as HttpErrorResponse;
+    const payload = httpError?.error;
+
+    if (typeof payload === 'string' && payload.trim()) {
+      return payload;
+    }
+
+    if (payload && typeof payload === 'object') {
+      const payloadMessage = (payload as { message?: unknown }).message;
+      if (typeof payloadMessage === 'string' && payloadMessage.trim()) {
+        return payloadMessage;
+      }
+
+      const title = (payload as { title?: unknown }).title;
+      if (typeof title === 'string' && title.trim()) {
+        return title;
+      }
+
+      const errors = (payload as { errors?: unknown }).errors;
+      if (errors && typeof errors === 'object') {
+        const messages = Object.values(errors as Record<string, unknown>)
+          .flatMap((value) => (Array.isArray(value) ? value : [value]))
+          .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+        if (messages.length > 0) {
+          return messages[0];
+        }
+      }
+    }
+
+    if (httpError?.message) {
+      return httpError.message;
+    }
+
+    return fallback;
   }
 }

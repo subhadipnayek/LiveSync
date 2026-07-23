@@ -55,16 +55,16 @@ export class SignUp {
       return;
     }
 
-    const success = await this.authService.signup(
+    const result = await this.authService.signup(
       this.email(),
       this.password(),
       this.confirmPassword(),
     );
 
-    if (success) {
+    if (result.success) {
       this.router.navigate(['/dashboard']);
     } else {
-      this.errorMessage.set('Failed to create account. Email may already be in use.');
+      this.errorMessage.set(result.message || 'Failed to create account.');
     }
   }
 
