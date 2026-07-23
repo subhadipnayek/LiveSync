@@ -174,8 +174,10 @@ public class ConflictResolverTests
             Text = "b"
         };
 
-        var transformed1 = _resolver.TransformAgainstConcurrent(op1, op2);
-        var transformed2 = _resolver.TransformAgainstConcurrent(op2, op1);
+        // transformed1 = op2 adjusted to apply after op1 has already been applied
+        // transformed2 = op1 adjusted to apply after op2 has already been applied
+        var transformed1 = _resolver.TransformAgainstConcurrent(op2, op1);
+        var transformed2 = _resolver.TransformAgainstConcurrent(op1, op2);
 
         // Verify deterministic behavior: both should result in consistent final state
         var content1 = _resolver.ApplyOperation("", op1);

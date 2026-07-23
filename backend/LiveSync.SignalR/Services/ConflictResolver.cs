@@ -53,15 +53,9 @@ public class ConflictResolver
     /// <returns>Transformed version of op1 that is compatible with op2 already applied</returns>
     public Operation TransformAgainstConcurrent(Operation op1, Operation op2)
     {
-        // Use stable ordering by operation ID to ensure deterministic results
-        var shouldSwap = op1.Id.CompareTo(op2.Id) > 0;
-        var (first, second) = shouldSwap ? (op2, op1) : (op1, op2);
-
-        // Transform first against second (always in same order for determinism)
-        var transformed = TransformInternal(first, second);
-
-        // If we swapped, return the transformed second; else return transformed first
-        return shouldSwap ? TransformInternal(op2, transformed) : transformed;
+        // TransformInternal already handles tie-breaking via ID comparison for same-position conflicts,
+        // so we can directly delegate without any swapping.
+        return TransformInternal(op1, op2);
     }
 
     /// <summary>
