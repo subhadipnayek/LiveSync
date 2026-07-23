@@ -12,8 +12,22 @@ services:
   # 2. .NET Web API
   livesync-api:
     build:
-      context: ./backend/LiveSync.Api
-      dockerfile: Dockerfile
+      context: ./backend
+      dockerfile: LiveSync.Api/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword
+      - Redis__ConnectionString=host.docker.internal:6379,password=LocalDevPassword123!,abortConnect=false
+      - Cors__AllowedOrigins__0=http://localhost:4200
+      - Cors__AllowedOrigins__1=http://localhost:4000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      
+  # 3. .NET Web API
+  livesync-sandbox:
+    build:
+      context: ./backend
+      dockerfile: LiveSync.Sandbox/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword
@@ -53,3 +67,4 @@ services:
     depends_on:
       - livesync-api
       - livesync-signalr
+      - livesync-sandbox
