@@ -49,7 +49,7 @@ export interface DocumentAccessResponse {
 }
 
 export interface ExecuteDocumentRequest {
-  language: 'csharp' | 'cs';
+  language: string;
   standardInput?: string;
 }
 
@@ -79,7 +79,7 @@ export class DocumentService {
   async getMyDocuments(): Promise<DocumentDto[]> {
     try {
       const response = await firstValueFrom(
-        this.http.get<DocumentDto[]>(`${this.apiUrl}/my-documents`)
+        this.http.get<DocumentDto[]>(`${this.apiUrl}/my-documents`),
       );
       return response;
     } catch (error) {
@@ -91,7 +91,7 @@ export class DocumentService {
   async getSharedDocuments(): Promise<SharedDocumentDto[]> {
     try {
       const response = await firstValueFrom(
-        this.http.get<SharedDocumentDto[]>(`${this.apiUrl}/shared-with-me`)
+        this.http.get<SharedDocumentDto[]>(`${this.apiUrl}/shared-with-me`),
       );
       return response;
     } catch (error) {
@@ -113,7 +113,7 @@ export class DocumentService {
   async getAccessLevel(id: string): Promise<string> {
     try {
       const response = await firstValueFrom(
-        this.http.get<DocumentAccessResponse>(`${this.apiUrl}/${id}/access`)
+        this.http.get<DocumentAccessResponse>(`${this.apiUrl}/${id}/access`),
       );
       return response.accessLevel;
     } catch (error) {
@@ -135,7 +135,7 @@ export class DocumentService {
   async updateDocument(id: string, request: UpdateDocumentRequest): Promise<DocumentDto> {
     try {
       const response = await firstValueFrom(
-        this.http.put<DocumentDto>(`${this.apiUrl}/${id}`, request)
+        this.http.put<DocumentDto>(`${this.apiUrl}/${id}`, request),
       );
       return response;
     } catch (error) {
@@ -147,7 +147,7 @@ export class DocumentService {
   async updateContent(id: string, request: DocumentContentUpdateRequest): Promise<DocumentDto> {
     try {
       const response = await firstValueFrom(
-        this.http.put<DocumentDto>(`${this.apiUrl}/${id}/content`, request)
+        this.http.put<DocumentDto>(`${this.apiUrl}/${id}/content`, request),
       );
       return response;
     } catch (error: any) {
@@ -155,7 +155,7 @@ export class DocumentService {
       // Add specific handling for permission errors
       if (error.status === 401 || error.status === 403) {
         const permissionError = new Error(
-          'Permission denied: You no longer have edit access to this document'
+          'Permission denied: You no longer have edit access to this document',
         );
         (permissionError as any).status = error.status;
         (permissionError as any).isPermissionError = true;
@@ -179,6 +179,15 @@ export class DocumentService {
     }
   }
 
+  async getExecutionLanguages(): Promise<string[]> {
+    try {
+      return await firstValueFrom(this.http.get<string[]>(`${this.apiUrl}/execution-languages`));
+    } catch (error) {
+      console.error('Error fetching execution languages:', error);
+      throw error;
+    }
+  }
+
   async deleteDocument(id: string): Promise<void> {
     try {
       await firstValueFrom(this.http.delete(`${this.apiUrl}/${id}`));
@@ -191,7 +200,7 @@ export class DocumentService {
   async generateShareCode(id: string): Promise<DocumentDto> {
     try {
       const response = await firstValueFrom(
-        this.http.post<DocumentDto>(`${this.apiUrl}/${id}/generate-share-code`, {})
+        this.http.post<DocumentDto>(`${this.apiUrl}/${id}/generate-share-code`, {}),
       );
       return response;
     } catch (error) {
@@ -203,7 +212,7 @@ export class DocumentService {
   async getDocumentByShareCode(shareCode: string): Promise<DocumentDto> {
     try {
       const response = await firstValueFrom(
-        this.http.get<DocumentDto>(`${this.apiUrl}/share/${shareCode}`)
+        this.http.get<DocumentDto>(`${this.apiUrl}/share/${shareCode}`),
       );
       return response;
     } catch (error) {
@@ -235,7 +244,7 @@ export class DocumentService {
   async updateSharedAccessLevel(
     documentId: string,
     sharedUserId: string,
-    accessLevel: string
+    accessLevel: string,
   ): Promise<MessageResponse> {
     try {
       return await firstValueFrom(

@@ -108,6 +108,40 @@
   }
 }
 
+.execution-language-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 12px;
+
+  select {
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.2);
+    color: #ffffff;
+    font-size: 12px;
+    padding: 2px 6px;
+    min-width: 92px;
+    outline: none;
+  }
+}
+
+.editor-wrapper.light-theme .execution-language-select {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1f2937;
+
+  select {
+    border-color: rgba(0, 0, 0, 0.25);
+    background: #ffffff;
+    color: #1f2937;
+  }
+}
+
 .permission-revoked-banner {
   display: flex;
   align-items: center;
@@ -240,6 +274,19 @@
   .toolbar-right button {
     width: 36px;
     height: 36px;
+  }
+
+  .execution-language-select {
+    margin-right: 4px;
+    padding: 2px 6px;
+
+    span {
+      display: none;
+    }
+
+    select {
+      min-width: 78px;
+    }
   }
 
   .editor-statusbar {

@@ -58,6 +58,17 @@ namespace LiveSync.Api.Controllers
         }
 
         /// <summary>
+        /// Get the languages currently available for sandbox execution
+        /// </summary>
+        [HttpGet("execution-languages")]
+        [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public ActionResult<List<string>> GetExecutionLanguages()
+        {
+            return Ok(new List<string> { "csharp" });
+        }
+
+        /// <summary>
         /// Get a specific document by ID
         /// </summary>
         [HttpGet("{id}")]

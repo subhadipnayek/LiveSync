@@ -92,6 +92,9 @@ export class Editor implements OnInit {
   readonly executionResult = signal<DocumentExecutionResponse | null>(null);
   readonly executionError = signal('');
   readonly standardInput = signal('');
+  readonly executionLanguages = signal<string[]>([]);
+  readonly selectedExecutionLanguage = signal('');
+  readonly isLoadingExecutionLanguages = signal(false);
 
   private isUpdatingFromRemote = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -190,6 +193,8 @@ export class Editor implements OnInit {
       const accessLevel = await this.documentService.getAccessLevel(id);
       this.accessLevel.set(accessLevel);
       this.isEditable.set(accessLevel === 'Edit');
+
+      await this.loadExecutionLanguages();
 
       await this.signalRService.startConnection();
       await this.signalRService.joinDocument(id);
@@ -472,6 +477,11 @@ export class Editor implements OnInit {
       return;
     }
 
+    if (!this.selectedExecutionLanguage()) {
+      this.executionError.set('No execution language available for this document.');
+      return;
+    }
+
     this.isExecuting.set(true);
     this.executionError.set('');
     this.executionResult.set(null);
@@ -485,7 +495,7 @@ export class Editor implements OnInit {
 
       const standardInput = this.standardInput();
       const result = await this.documentService.executeDocument(currentDocId, {
-        language: 'csharp',
+        language: this.selectedExecutionLanguage(),
         ...(standardInput ? { standardInput } : {}),
       });
       this.executionResult.set(result);
@@ -498,6 +508,10 @@ export class Editor implements OnInit {
 
   setStandardInput(event: Event): void {
     this.standardInput.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  setExecutionLanguage(event: Event): void {
+    this.selectedExecutionLanguage.set((event.target as HTMLSelectElement).value);
   }
 
   downloadCode() {
@@ -641,6 +655,30 @@ export class Editor implements OnInit {
     }
 
     return 'plaintext';
+  }
+
+  private async loadExecutionLanguages(): Promise<void> {
+    this.isLoadingExecutionLanguages.set(true);
+
+    try {
+      const languages = await this.documentService.getExecutionLanguages();
+      const normalized = languages.filter((language) => typeof language === 'string' && language);
+      const fallback = normalized.length > 0 ? normalized : ['csharp'];
+      this.executionLanguages.set(fallback);
+
+      const currentSelection = this.selectedExecutionLanguage();
+      if (!currentSelection || !fallback.includes(currentSelection)) {
+        this.selectedExecutionLanguage.set(fallback[0]);
+      }
+    } catch {
+      const fallback = ['csharp'];
+      this.executionLanguages.set(fallback);
+      if (!this.selectedExecutionLanguage()) {
+        this.selectedExecutionLanguage.set(fallback[0]);
+      }
+    } finally {
+      this.isLoadingExecutionLanguages.set(false);
+    }
   }
 
   private getErrorMessage(error: unknown, fallback: string): string {

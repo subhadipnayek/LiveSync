@@ -31,14 +31,26 @@
       </div>
 
       <div class="toolbar-right">
+        <label class="execution-language-select" matTooltip="Execution language">
+          <span>Lang</span>
+          <select
+            [value]="selectedExecutionLanguage()"
+            (change)="setExecutionLanguage($event)"
+            [disabled]="isLoadingExecutionLanguages() || isExecuting()"
+          >
+            @for (language of executionLanguages(); track language) {
+              <option [value]="language">{{ language }}</option>
+            }
+          </select>
+        </label>
         <button mat-icon-button (click)="formatCode()" matTooltip="Format (Alt+Shift+F)">
           <mat-icon>auto_fix_high</mat-icon>
         </button>
         <button
           mat-icon-button
           (click)="runCode()"
-          [disabled]="!isEditable() || isExecuting()"
-          matTooltip="Run as C#"
+          [disabled]="!isEditable() || isExecuting() || !selectedExecutionLanguage()"
+          [matTooltip]="'Run as ' + (selectedExecutionLanguage() || 'language')"
         >
           <mat-icon>{{ isExecuting() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
         </button>
@@ -83,7 +95,10 @@
   </label>
 
   @if (executionResult() || executionError()) {
-    <section class="execution-panel" [class.failed]="executionError() || !executionResult()?.isSuccess">
+    <section
+      class="execution-panel"
+      [class.failed]="executionError() || !executionResult()?.isSuccess"
+    >
       <div class="execution-heading">
         <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
         <span>{{ executionResult()?.message || executionError() }}</span>
