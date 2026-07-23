@@ -150,6 +150,62 @@
   border-top: 1px solid rgba(255, 255, 255, 0.14);
 }
 
+.standard-input {
+  flex-shrink: 0;
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #252526;
+  color: #cccccc;
+  border-top: 1px solid #3c3c3c;
+  font-size: 12px;
+
+  textarea {
+    resize: vertical;
+    min-height: 32px;
+    max-height: 100px;
+    padding: 6px 8px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border: 1px solid #555;
+    border-radius: 3px;
+    font: inherit;
+  }
+}
+
+.execution-panel {
+  flex-shrink: 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px 14px;
+  background: #1a2b1d;
+  color: #d8f3dc;
+  border-top: 1px solid #315c3a;
+  font-size: 13px;
+
+  &.failed {
+    background: #321c1c;
+    color: #ffd8d8;
+    border-color: #6d3030;
+  }
+}
+
+.execution-heading {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.execution-output {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.execution-error {
+  color: #ff9b9b;
+}
+
 .editor-statusbar.light {
   background: #0e639c;
 }

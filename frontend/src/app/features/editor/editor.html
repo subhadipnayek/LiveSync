@@ -34,6 +34,14 @@
         <button mat-icon-button (click)="formatCode()" matTooltip="Format (Alt+Shift+F)">
           <mat-icon>auto_fix_high</mat-icon>
         </button>
+        <button
+          mat-icon-button
+          (click)="runCode()"
+          [disabled]="!isEditable() || isExecuting()"
+          matTooltip="Run as C#"
+        >
+          <mat-icon>{{ isExecuting() ? 'hourglass_top' : 'play_arrow' }}</mat-icon>
+        </button>
         <button mat-icon-button (click)="toggleWordWrap()" matTooltip="Toggle Word Wrap">
           <mat-icon>{{ isWordWrapEnabled() ? 'wrap_text' : 'notes' }}</mat-icon>
         </button>
@@ -63,6 +71,31 @@
   <div class="editor-container">
     <div #editorHost class="monaco-host"></div>
   </div>
+
+  <label class="standard-input">
+    <span>Standard input for C# execution</span>
+    <textarea
+      [value]="standardInput()"
+      (input)="setStandardInput($event)"
+      placeholder="Optional input passed to the program"
+      rows="2"
+    ></textarea>
+  </label>
+
+  @if (executionResult() || executionError()) {
+    <section class="execution-panel" [class.failed]="executionError() || !executionResult()?.isSuccess">
+      <div class="execution-heading">
+        <strong>Execution {{ executionResult()?.status || 'failed' }}</strong>
+        <span>{{ executionResult()?.message || executionError() }}</span>
+      </div>
+      @if (executionResult()?.standardOutput) {
+        <pre class="execution-output">{{ executionResult()?.standardOutput }}</pre>
+      }
+      @if (executionResult()?.standardError) {
+        <pre class="execution-output execution-error">{{ executionResult()?.standardError }}</pre>
+      }
+    </section>
+  }
 
   <div class="editor-statusbar" [class.light]="!isDarkMode()">
     <span class="status-item">{{ currentLanguage() }}</span>

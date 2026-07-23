@@ -116,8 +116,7 @@ export class Dashboard implements OnInit {
 
   async openShareModal(doc: DocumentDto) {
     this.selectedDocForShare.set(doc);
-    // Initialize default access level from document (default to 'View' if not set)
-    this.defaultAccessLevel.set((doc as any).defaultAccessLevel || 'View');
+    this.defaultAccessLevel.set(doc.defaultAccessLevel || 'View');
 
     if (!doc.shareCode) {
       try {

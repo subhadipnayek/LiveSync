@@ -10,6 +10,7 @@ export interface DocumentDto {
   ownerId: string;
   ownerName?: string;
   shareCode?: string;
+  defaultAccessLevel: string;
   createdAt: string;
   updatedAt: string;
   lastEditedAt?: string;
@@ -43,13 +44,29 @@ export interface DocumentContentUpdateRequest {
   lastEditedBy?: string;
 }
 
-export interface AddSharedDocumentRequest {
-  shareCode: string;
-  accessLevel?: string;
-}
-
 export interface DocumentAccessResponse {
   accessLevel: string;
+}
+
+export interface ExecuteDocumentRequest {
+  language: 'csharp' | 'cs';
+  standardInput?: string;
+}
+
+export interface DocumentExecutionResponse {
+  documentId: string;
+  language: string;
+  status: string;
+  isSuccess: boolean;
+  message: string;
+  standardOutput?: string;
+  standardError?: string;
+  requestedAt: string;
+  completedAt: string;
+}
+
+interface MessageResponse {
+  message: string;
 }
 
 @Injectable({
@@ -148,6 +165,20 @@ export class DocumentService {
     }
   }
 
+  async executeDocument(
+    id: string,
+    request: ExecuteDocumentRequest,
+  ): Promise<DocumentExecutionResponse> {
+    try {
+      return await firstValueFrom(
+        this.http.post<DocumentExecutionResponse>(`${this.apiUrl}/${id}/execute`, request),
+      );
+    } catch (error) {
+      console.error('Error executing document:', error);
+      throw error;
+    }
+  }
+
   async deleteDocument(id: string): Promise<void> {
     try {
       await firstValueFrom(this.http.delete(`${this.apiUrl}/${id}`));
@@ -181,9 +212,11 @@ export class DocumentService {
     }
   }
 
-  async addSharedDocument(shareCode: string): Promise<void> {
+  async addSharedDocument(shareCode: string): Promise<MessageResponse> {
     try {
-      await firstValueFrom(this.http.post(`${this.apiUrl}/add-shared`, { shareCode }));
+      return await firstValueFrom(
+        this.http.post<MessageResponse>(`${this.apiUrl}/add-shared`, { shareCode }),
+      );
     } catch (error) {
       console.error('Error adding shared document:', error);
       throw error;
@@ -203,12 +236,13 @@ export class DocumentService {
     documentId: string,
     sharedUserId: string,
     accessLevel: string
-  ): Promise<void> {
+  ): Promise<MessageResponse> {
     try {
-      await firstValueFrom(
-        this.http.put(`${this.apiUrl}/${documentId}/shared/${sharedUserId}/access-level`, {
-          accessLevel,
-        })
+      return await firstValueFrom(
+        this.http.put<MessageResponse>(
+          `${this.apiUrl}/${documentId}/shared/${sharedUserId}/access-level`,
+          { accessLevel },
+        ),
       );
     } catch (error) {
       console.error('Error updating access level:', error);
@@ -216,12 +250,15 @@ export class DocumentService {
     }
   }
 
-  async updateShareCodeAccessLevel(documentId: string, accessLevel: string): Promise<void> {
+  async updateShareCodeAccessLevel(
+    documentId: string,
+    accessLevel: string,
+  ): Promise<MessageResponse> {
     try {
-      await firstValueFrom(
-        this.http.put(`${this.apiUrl}/${documentId}/share-code-access-level`, {
+      return await firstValueFrom(
+        this.http.put<MessageResponse>(`${this.apiUrl}/${documentId}/share-code-access-level`, {
           accessLevel,
-        })
+        }),
       );
     } catch (error) {
       console.error('Error updating share code access level:', error);

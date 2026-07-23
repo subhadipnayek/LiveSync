@@ -47,7 +47,11 @@ import { html } from '@codemirror/lang-html';
 import { markdown } from '@codemirror/lang-markdown';
 import { css } from '@codemirror/lang-css';
 import { SignalRService } from '../../services/signalr.service';
-import { DocumentDto, DocumentService } from '../../services/document.service';
+import {
+  DocumentDto,
+  DocumentExecutionResponse,
+  DocumentService,
+} from '../../services/document.service';
 
 @Component({
   selector: 'app-editor',
@@ -84,6 +88,10 @@ export class Editor implements OnInit {
   readonly isWordWrapEnabled = signal(false);
   readonly lastSaved = signal<Date | null>(null);
   readonly isSaving = signal(false);
+  readonly isExecuting = signal(false);
+  readonly executionResult = signal<DocumentExecutionResponse | null>(null);
+  readonly executionError = signal('');
+  readonly standardInput = signal('');
 
   private isUpdatingFromRemote = false;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -364,7 +372,7 @@ export class Editor implements OnInit {
 
     try {
       this.isSaving.set(true);
-      await this.documentService.updateDocument(currentDocId, {
+      await this.documentService.updateContent(currentDocId, {
         content,
         lastEditedBy:
           this.signalRService.connectionState() === 'connected' ? 'Real-time user' : 'Offline user',
@@ -456,6 +464,40 @@ export class Editor implements OnInit {
 
   copyCode() {
     void navigator.clipboard.writeText(this.codeSignal());
+  }
+
+  async runCode(): Promise<void> {
+    const currentDocId = this.docId();
+    if (!currentDocId || !this.isEditable()) {
+      return;
+    }
+
+    this.isExecuting.set(true);
+    this.executionError.set('');
+    this.executionResult.set(null);
+
+    try {
+      await this.documentService.updateContent(currentDocId, {
+        content: this.codeSignal(),
+        lastEditedBy: 'Code execution',
+      });
+      this.lastSaved.set(new Date());
+
+      const standardInput = this.standardInput();
+      const result = await this.documentService.executeDocument(currentDocId, {
+        language: 'csharp',
+        ...(standardInput ? { standardInput } : {}),
+      });
+      this.executionResult.set(result);
+    } catch (error: unknown) {
+      this.executionError.set(this.getErrorMessage(error, 'Code execution failed.'));
+    } finally {
+      this.isExecuting.set(false);
+    }
+  }
+
+  setStandardInput(event: Event): void {
+    this.standardInput.set((event.target as HTMLTextAreaElement).value);
   }
 
   downloadCode() {
@@ -557,6 +599,10 @@ export class Editor implements OnInit {
       return 'typescript';
     }
 
+    if (loweredName.endsWith('.cs')) {
+      return 'csharp';
+    }
+
     if (
       loweredName.endsWith('.js') ||
       loweredName.endsWith('.mjs') ||
@@ -595,5 +641,19 @@ export class Editor implements OnInit {
     }
 
     return 'plaintext';
+  }
+
+  private getErrorMessage(error: unknown, fallback: string): string {
+    if (typeof error === 'object' && error !== null) {
+      const payload = (error as { error?: unknown }).error;
+      if (payload && typeof payload === 'object') {
+        const message = (payload as { message?: unknown }).message;
+        if (typeof message === 'string' && message.trim()) {
+          return message;
+        }
+      }
+    }
+
+    return fallback;
   }
 }
