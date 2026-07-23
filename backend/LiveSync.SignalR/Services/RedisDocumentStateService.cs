@@ -17,11 +17,13 @@ namespace LiveSync.Services;
 public sealed class RedisDocumentStateService : IDocumentStateService
 {
     private readonly IDatabase _db;
+    private readonly IOperationLog _operationLog;
     private static readonly TimeSpan ConnKeyTtl = TimeSpan.FromHours(24);
 
-    public RedisDocumentStateService(IConnectionMultiplexer redis)
+    public RedisDocumentStateService(IConnectionMultiplexer redis, IOperationLog operationLog)
     {
         _db = redis.GetDatabase();
+        _operationLog = operationLog;
     }
 
     // ── Key helpers ─────────────────────────────────────────────────────────
@@ -99,4 +101,9 @@ public sealed class RedisDocumentStateService : IDocumentStateService
         var value = await _db.StringGetAsync(ConnColorKey(connectionId));
         return value.HasValue ? value.ToString() : null;
     }
+
+    // ── Operations for CRDT conflict resolution ──────────────────────────────
+
+    public IOperationLog GetOperationLog()
+        => _operationLog;
 }

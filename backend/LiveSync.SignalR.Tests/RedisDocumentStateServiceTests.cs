@@ -6,6 +6,27 @@ using Xunit;
 namespace LiveSync.SignalR.Tests;
 
 /// <summary>
+/// Simple stub for IOperationLog used in tests.
+/// </summary>
+internal class StubOperationLog : IOperationLog
+{
+    public Task AppendOperationAsync(string documentId, LiveSync.Models.Operation operation, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<LiveSync.Models.Operation>> GetOperationsSinceAsync(string documentId, long fromRevision, CancellationToken cancellationToken = default)
+        => Task.FromResult((IReadOnlyList<LiveSync.Models.Operation>)new List<LiveSync.Models.Operation>());
+
+    public Task<IReadOnlyList<LiveSync.Models.Operation>> GetAllOperationsAsync(string documentId, CancellationToken cancellationToken = default)
+        => Task.FromResult((IReadOnlyList<LiveSync.Models.Operation>)new List<LiveSync.Models.Operation>());
+
+    public Task<long> GetCurrentRevisionAsync(string documentId, CancellationToken cancellationToken = default)
+        => Task.FromResult(0L);
+
+    public Task DeleteOperationsAsync(string documentId, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+}
+
+/// <summary>
 /// Integration tests for RedisDocumentStateService.
 /// These tests require the Redis container to be running (docker-compose up redis-backplane).
 /// </summary>
@@ -14,6 +35,7 @@ public class RedisDocumentStateServiceTests : IAsyncLifetime
     private ConnectionMultiplexer _redis = null!;
     private RedisDocumentStateService _sut = null!;
     private IDatabase _db = null!;
+    private IOperationLog _stubOperationLog = null!;
 
     // Unique prefix per test run to avoid cross-test pollution
     private readonly string _testRunId = Guid.NewGuid().ToString("N")[..8];
@@ -27,7 +49,8 @@ public class RedisDocumentStateServiceTests : IAsyncLifetime
         options.AbortOnConnectFail = false;
         _redis = await ConnectionMultiplexer.ConnectAsync(options);
         _db = _redis.GetDatabase();
-        _sut = new RedisDocumentStateService(_redis);
+        _stubOperationLog = new StubOperationLog();
+        _sut = new RedisDocumentStateService(_redis, _stubOperationLog);
     }
 
     public async ValueTask DisposeAsync()

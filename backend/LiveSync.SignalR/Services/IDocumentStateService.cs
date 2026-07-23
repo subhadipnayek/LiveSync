@@ -52,4 +52,12 @@ public interface IDocumentStateService
 
     /// <summary>Returns the cursor colour for a connection, or null.</summary>
     Task<string?> GetColorAsync(string connectionId);
+
+    // ── Operations for CRDT conflict resolution ──────────────────────────────
+
+    /// <summary>
+    /// Gets the IOperationLog service for managing operations.
+    /// This is lazily retrieved and may be used during operations.
+    /// </summary>
+    IOperationLog GetOperationLog();
 }

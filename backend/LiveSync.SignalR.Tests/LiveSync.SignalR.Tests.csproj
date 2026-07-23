@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+	<ProjectReference Include="..\LiveSync.Api.IntegrationTests\LiveSync.Api.IntegrationTests.csproj" />
 	<ProjectReference Include="..\LiveSync.SignalR\LiveSync.SignalR.csproj" />
   </ItemGroup>
 

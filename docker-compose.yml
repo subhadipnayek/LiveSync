@@ -14,8 +14,6 @@ services:
     build:
       context: ./backend/LiveSync.Api
       dockerfile: Dockerfile
-    deploy:
-      replicas: 2
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Host=host.docker.internal;Port=5432;Database=livesync;Username=devuser;Password=devpassword

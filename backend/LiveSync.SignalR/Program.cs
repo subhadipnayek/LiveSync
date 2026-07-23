@@ -65,6 +65,7 @@ if (!string.IsNullOrWhiteSpace(redisConnectionString))
     var multiplexer = await ConnectionMultiplexer.ConnectAsync(redisConnectionString);
     builder.Services.AddSingleton<IConnectionMultiplexer>(multiplexer);
     builder.Services.AddSingleton<IDocumentStateService, RedisDocumentStateService>();
+    builder.Services.AddSingleton<IOperationLog, RedisOperationLog>();
     signalRBuilder.AddStackExchangeRedis(redisConnectionString, options =>
     {
         options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Pattern("LiveSync");
@@ -74,6 +75,9 @@ else
 {
     throw new InvalidOperationException("Redis:ConnectionString is required. Configure it in appsettings or environment variables.");
 }
+
+// Add conflict resolution service
+builder.Services.AddSingleton<ConflictResolver>();
 
 var apiBaseUrl = builder.Configuration["Services:ApiBaseUrl"]
     ?? throw new InvalidOperationException("Services:ApiBaseUrl is required.");
