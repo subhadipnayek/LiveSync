@@ -15,6 +15,37 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { EditorState, Compartment } from '@codemirror/state';
+import {
+  EditorView,
+  drawSelection,
+  highlightActiveLine,
+  dropCursor,
+  keymap,
+  lineNumbers,
+  highlightActiveLineGutter,
+} from '@codemirror/view';
+import {
+  defaultHighlightStyle,
+  syntaxHighlighting,
+  indentOnInput,
+  bracketMatching,
+} from '@codemirror/language';
+import { history, defaultKeymap, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { searchKeymap } from '@codemirror/search';
+import {
+  autocompletion,
+  completionKeymap,
+  closeBrackets,
+  closeBracketsKeymap,
+} from '@codemirror/autocomplete';
+import { foldKeymap } from '@codemirror/language';
+import { oneDark } from '@codemirror/theme-one-dark';
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { html } from '@codemirror/lang-html';
+import { markdown } from '@codemirror/lang-markdown';
+import { css } from '@codemirror/lang-css';
 import { SignalRService } from '../../services/signalr.service';
 import { DocumentDto, DocumentService } from '../../services/document.service';
 
@@ -26,27 +57,20 @@ import { DocumentDto, DocumentService } from '../../services/document.service';
   styleUrl: './editor.scss',
 })
 export class Editor implements OnInit {
-  // Input signals for modal mode
   readonly documentId = input<string>('');
   readonly isModal = input<boolean>(false);
 
-  // Angular 20 signal-based queries
-  readonly codeTextarea = viewChild.required<ElementRef<HTMLTextAreaElement>>('codeTextarea');
-  readonly lineNumbers = viewChild.required<ElementRef<HTMLPreElement>>('lineNumbers');
+  readonly editorHost = viewChild.required<ElementRef<HTMLDivElement>>('editorHost');
 
-  // Inject services using Angular 20 inject() function
   readonly signalRService = inject(SignalRService);
   private readonly documentService = inject(DocumentService);
   private readonly activatedRoute = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
-  // Signals for reactive state
   readonly docId = signal<string>('');
   readonly document = signal<DocumentDto | null>(null);
-  readonly lineNumbersArray = signal<number[]>([1]);
   readonly codeSignal = signal('// Start typing to collaborate...\n');
-  readonly theme = signal('vs-dark');
   readonly isDarkMode = signal(true);
   readonly isLoading = signal(false);
   readonly error = signal('');
@@ -55,26 +79,28 @@ export class Editor implements OnInit {
   readonly accessLevel = signal<string>('Edit');
   readonly permissionRevokedMessage = signal<string>('');
   readonly showPermissionBanner = signal(false);
-
-  // Private state
-  private isUpdatingFromRemote = false;
-  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly undoStack = signal<string[]>([]);
-  private readonly redoStack = signal<string[]>([]);
-  private readonly maxUndoSteps = 50;
+  readonly currentLanguage = signal('plaintext');
+  readonly cursorPosition = signal('Ln 1, Col 1');
+  readonly isWordWrapEnabled = signal(false);
   readonly lastSaved = signal<Date | null>(null);
   readonly isSaving = signal(false);
 
+  private isUpdatingFromRemote = false;
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private editorView: EditorView | null = null;
+  private languageCompartment = new Compartment();
+  private readOnlyCompartment = new Compartment();
+  private wrapCompartment = new Compartment();
+  private themeCompartment = new Compartment();
+
   ngOnInit() {
-    // Get document ID from input (modal mode) or route (standalone mode)
     const inputDocId = this.documentId();
     if (inputDocId) {
-      // Modal mode - use provided document ID
       this.docId.set(inputDocId);
-      this.loadDocument(inputDocId);
+      void this.loadDocument(inputDocId);
     } else {
-      // Standalone mode - get from route params
       const subscription = this.activatedRoute.params.subscribe(async (params) => {
         const id = params['id'];
         if (id) {
@@ -88,65 +114,23 @@ export class Editor implements OnInit {
       });
     }
 
-    // Cleanup on destroy
     this.destroyRef.onDestroy(async () => {
-      const docId = this.docId();
-      if (docId) {
-        await this.signalRService.leaveDocument(docId);
+      const currentDocId = this.docId();
+      if (currentDocId) {
+        await this.signalRService.leaveDocument(currentDocId);
       }
+
+      this.editorView?.destroy();
+      this.editorView = null;
     });
   }
 
-  async loadDocument(id: string) {
-    this.isLoading.set(true);
-    this.error.set('');
-    try {
-      const doc = await this.documentService.getDocument(id);
-      this.document.set(doc);
-      this.docTitle.set(doc.title);
-      const content = doc.content || '// Start typing to collaborate...\n';
-      console.log('Loading document content:', content);
-      this.codeSignal.set(content);
-
-      const accessLevel = await this.documentService.getAccessLevel(id);
-      this.accessLevel.set(accessLevel);
-      this.isEditable.set(accessLevel === 'Edit');
-
-      // Join the document for real-time collaboration
-      await this.signalRService.startConnection();
-      await this.signalRService.joinDocument(id);
-    } catch (error) {
-      console.error('Error loading document:', error);
-      this.error.set('Failed to load document. Redirecting...');
-      setTimeout(() => {
-        this.router.navigate(['/dashboard']);
-      }, 2000);
-    } finally {
-      this.isLoading.set(false);
-    }
-  }
-
   constructor() {
-    // Effects for SignalR events
     effect(() => {
       const newContent = this.signalRService.contentUpdate();
       if (newContent !== undefined && newContent !== null) {
-        this.isUpdatingFromRemote = true;
         this.codeSignal.set(newContent);
-
-        // Update textarea using signal query
-        const textarea = this.codeTextarea()?.nativeElement;
-        if (textarea) {
-          textarea.value = newContent;
-        }
-
-        this.updateLineNumbers(newContent);
-
-        // Clear undo/redo stacks
-        this.undoStack.set([]);
-        this.redoStack.set([]);
-
-        this.isUpdatingFromRemote = false;
+        this.updateEditorDocument(newContent);
       }
     });
 
@@ -164,232 +148,204 @@ export class Editor implements OnInit {
       }
     });
 
-    // Effect to update textarea when code signal changes (from loadDocument)
     effect(() => {
-      const code = this.codeSignal();
-      const textarea = this.codeTextarea()?.nativeElement;
-      if (textarea && !this.isUpdatingFromRemote && textarea.value !== code) {
-        textarea.value = code;
-        this.updateLineNumbers(code);
+      const editable = this.isEditable();
+      if (this.editorView) {
+        this.editorView.dispatch({
+          effects: this.readOnlyCompartment.reconfigure(EditorState.readOnly.of(!editable)),
+        });
       }
     });
 
-    // Initialize view after render
     afterNextRender(() => {
       this.initializeEditor();
-      this.setupSignalR();
+      void this.setupSignalR();
     });
+  }
+
+  async loadDocument(id: string) {
+    this.isLoading.set(true);
+    this.error.set('');
+
+    try {
+      const doc = await this.documentService.getDocument(id);
+      this.document.set(doc);
+      this.docTitle.set(doc.title);
+
+      const content = doc.content || '// Start typing to collaborate...\n';
+      this.codeSignal.set(content);
+
+      const language = this.detectLanguage(doc.title || id, content);
+      this.currentLanguage.set(language);
+      this.updateEditorDocument(content, language);
+
+      const accessLevel = await this.documentService.getAccessLevel(id);
+      this.accessLevel.set(accessLevel);
+      this.isEditable.set(accessLevel === 'Edit');
+
+      await this.signalRService.startConnection();
+      await this.signalRService.joinDocument(id);
+    } catch (loadError) {
+      console.error('Error loading document:', loadError);
+      this.error.set('Failed to load document. Redirecting...');
+      setTimeout(() => {
+        void this.router.navigate(['/dashboard']);
+      }, 2000);
+    } finally {
+      this.isLoading.set(false);
+    }
   }
 
   private initializeEditor() {
-    const textarea = this.codeTextarea()?.nativeElement;
-    const lineNumbersEl = this.lineNumbers()?.nativeElement;
+    const host = this.editorHost()?.nativeElement;
+    if (!host) {
+      return;
+    }
 
-    if (!textarea) return;
+    const language = this.detectLanguage(this.docTitle() || this.docId(), this.codeSignal());
+    this.currentLanguage.set(language);
 
-    textarea.value = this.codeSignal();
-    this.updateLineNumbers(this.codeSignal());
-
-    // Input event listener
-    textarea.addEventListener('input', (event: Event) => {
-      if (!this.isUpdatingFromRemote && this.isEditable()) {
-        const newValue = (event.target as HTMLTextAreaElement).value;
-        this.pushToUndoStack(this.codeSignal());
-        this.codeSignal.set(newValue);
-        this.updateLineNumbers(newValue);
-        this.scheduleDebounce(newValue);
-      } else if (!this.isEditable()) {
-        // Revert changes if not editable (permission was revoked)
-        const target = event.target as HTMLTextAreaElement;
-        const currentValue = this.codeSignal();
-        if (target.value !== currentValue) {
-          target.value = currentValue;
-          // Show message if not already shown
-          if (!this.permissionRevokedMessage()) {
-            this.permissionRevokedMessage.set('This document is read-only.');
+    const state = EditorState.create({
+      doc: this.codeSignal(),
+      extensions: [
+        lineNumbers(),
+        highlightActiveLineGutter(),
+        history(),
+        drawSelection(),
+        dropCursor(),
+        EditorState.allowMultipleSelections.of(true),
+        indentOnInput(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        bracketMatching(),
+        closeBrackets(),
+        autocompletion(),
+        this.languageCompartment.of(this.getLanguageExtension(language)),
+        this.readOnlyCompartment.of(EditorState.readOnly.of(!this.isEditable())),
+        this.wrapCompartment.of([]),
+        this.themeCompartment.of(oneDark),
+        this.editorThemeExtension(),
+        keymap.of([
+          ...closeBracketsKeymap,
+          ...defaultKeymap,
+          ...searchKeymap,
+          ...historyKeymap,
+          ...foldKeymap,
+          ...completionKeymap,
+          indentWithTab,
+          {
+            key: 'Mod-s',
+            run: () => {
+              const value = this.editorView?.state.doc.toString() ?? this.codeSignal();
+              this.scheduleDebounce(value);
+              return true;
+            },
+          },
+          {
+            key: 'Alt-Shift-f',
+            run: () => {
+              void this.formatCode();
+              return true;
+            },
+          },
+        ]),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged && !this.isUpdatingFromRemote && this.isEditable()) {
+            const newValue = update.state.doc.toString();
+            this.codeSignal.set(newValue);
+            this.scheduleDebounce(newValue);
           }
-        }
-      }
+
+          if (update.selectionSet || update.docChanged) {
+            this.updateCursorLabel(update.state);
+          }
+        }),
+      ],
     });
 
-    // Scroll sync
-    textarea.addEventListener('scroll', () => {
-      if (lineNumbersEl) {
-        lineNumbersEl.scrollTop = textarea.scrollTop;
-        lineNumbersEl.scrollLeft = 0;
-      }
+    this.editorView = new EditorView({
+      state,
+      parent: host,
     });
 
-    // Keyboard shortcuts and code-friendly features
-    textarea.addEventListener('keydown', (event: KeyboardEvent) => {
-      // Tab key - insert 2 spaces
-      if (event.key === 'Tab') {
-        event.preventDefault();
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const value = textarea.value;
+    this.updateCursorLabel(state);
+  }
 
-        if (event.shiftKey) {
-          // Shift+Tab: Outdent
-          this.handleOutdent(textarea, start, end);
-        } else {
-          // Tab: Indent
-          this.handleIndent(textarea, start, end);
-        }
-        return;
-      }
-
-      // Enter key - auto-indent
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        this.handleEnter(textarea);
-        return;
-      }
-
-      // Auto-close brackets, quotes, etc.
-      const pairs: Record<string, string> = {
-        '(': ')',
-        '[': ']',
-        '{': '}',
-        '"': '"',
-        "'": "'",
-        '`': '`',
-      };
-
-      if (pairs[event.key] && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-
-        if (start !== end) {
-          // Wrap selection
-          event.preventDefault();
-          this.wrapSelection(textarea, event.key, pairs[event.key]);
-          return;
-        } else {
-          // Auto-close
-          event.preventDefault();
-          this.autoClose(textarea, event.key, pairs[event.key]);
-          return;
-        }
-      }
-
-      // Undo/Redo
-      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && !event.shiftKey) {
-        event.preventDefault();
-        this.undo();
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key === 'z' && event.shiftKey) {
-        event.preventDefault();
-        this.redo();
-        return;
-      }
-
-      // Save
-      if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-        event.preventDefault();
-        this.downloadCode();
-        return;
-      }
-
-      // Duplicate line (Ctrl/Cmd + D)
-      if ((event.ctrlKey || event.metaKey) && event.key === 'd') {
-        event.preventDefault();
-        this.duplicateLine(textarea);
-        return;
-      }
-
-      // Comment/Uncomment (Ctrl/Cmd + /)
-      if ((event.ctrlKey || event.metaKey) && event.key === '/') {
-        event.preventDefault();
-        this.toggleComment(textarea);
-        return;
-      }
+  private editorThemeExtension() {
+    return EditorView.theme({
+      '&': {
+        height: '100%',
+      },
+      '.cm-scroller': {
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        fontSize: '14px',
+        lineHeight: '1.7',
+      },
+      '.cm-content': {
+        caretColor: '#ffffff',
+      },
+      '&.cm-focused .cm-cursor': {
+        borderLeftColor: '#ffffff',
+      },
     });
   }
 
-  private pushToUndoStack(value: string) {
-    const stack = this.undoStack();
-    if (stack.length >= this.maxUndoSteps) {
-      stack.shift();
-    }
-    this.undoStack.set([...stack, value]);
-    this.redoStack.set([]);
+  private updateCursorLabel(state: EditorState) {
+    const pos = state.selection.main.head;
+    const line = state.doc.lineAt(pos);
+    const col = pos - line.from + 1;
+    this.cursorPosition.set(`Ln ${line.number}, Col ${col}`);
   }
 
-  private undo() {
-    const stack = this.undoStack();
-    if (stack.length > 0) {
-      const current = this.codeSignal();
-      this.redoStack.set([...this.redoStack(), current]);
-
-      const previous = stack[stack.length - 1];
-      this.undoStack.set(stack.slice(0, -1));
-
-      this.isUpdatingFromRemote = true;
-      this.codeSignal.set(previous);
-
-      const textarea = this.codeTextarea()?.nativeElement;
-      if (textarea) {
-        textarea.value = previous;
-      }
-      this.updateLineNumbers(previous);
-      this.scheduleDebounce(previous);
-      this.isUpdatingFromRemote = false;
+  private getLanguageExtension(language: string) {
+    switch (language) {
+      case 'typescript':
+        return javascript({ typescript: true });
+      case 'javascript':
+        return javascript();
+      case 'json':
+        return json();
+      case 'html':
+        return html();
+      case 'scss':
+      case 'css':
+        return css();
+      case 'markdown':
+        return markdown();
+      default:
+        return [];
     }
   }
 
-  private redo() {
-    const stack = this.redoStack();
-    if (stack.length > 0) {
-      const current = this.codeSignal();
-      this.undoStack.set([...this.undoStack(), current]);
-
-      const next = stack[stack.length - 1];
-      this.redoStack.set(stack.slice(0, -1));
-
-      this.isUpdatingFromRemote = true;
-      this.codeSignal.set(next);
-
-      const textarea = this.codeTextarea()?.nativeElement;
-      if (textarea) {
-        textarea.value = next;
-      }
-      this.updateLineNumbers(next);
-      this.scheduleDebounce(next);
-      this.isUpdatingFromRemote = false;
-    }
+  private async setupSignalR() {
+    this.signalRService.addContentUpdateListener();
+    this.signalRService.addUserJoinedListener();
+    this.signalRService.addUserLeftListener();
   }
 
   private scheduleDebounce(value: string) {
-    // Clear existing timer for SignalR real-time sync
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
 
-    // Set new timer for 150ms debounce (real-time)
     this.debounceTimer = setTimeout(() => {
       if (this.signalRService.connectionState() === 'connected') {
-        void this.signalRService.sendUpdate(this.docId(), value).catch((error) => {
-          console.error('Error sending real-time update:', error);
+        void this.signalRService.sendUpdate(this.docId(), value).catch((sendError) => {
+          console.error('Error sending real-time update:', sendError);
 
-          const message = error?.message?.toLowerCase?.() ?? '';
+          const message = sendError?.message?.toLowerCase?.() ?? '';
           if (message.includes('edit access') || message.includes('forbidden')) {
             this.handlePermissionRevoked();
           }
         });
-      } else {
-        console.warn('Not connected, buffering update...');
       }
+
       this.debounceTimer = null;
     }, 150);
 
-    // Clear existing save timer
     if (this.saveDebounceTimer) {
       clearTimeout(this.saveDebounceTimer);
     }
 
-    // Set new timer for 300ms debounce (backend persistence)
     this.saveDebounceTimer = setTimeout(async () => {
       await this.saveToBackend(value);
       this.saveDebounceTimer = null;
@@ -397,30 +353,26 @@ export class Editor implements OnInit {
   }
 
   private async saveToBackend(content: string): Promise<void> {
-    const docId = this.docId();
-    if (!docId) return;
+    const currentDocId = this.docId();
+    if (!currentDocId) {
+      return;
+    }
 
-    // Don't attempt to save if not editable
     if (!this.isEditable()) {
-      console.log('Document is read-only, skipping save');
       return;
     }
 
     try {
       this.isSaving.set(true);
-      await this.documentService.updateDocument(docId, {
-        content: content,
+      await this.documentService.updateDocument(currentDocId, {
+        content,
         lastEditedBy:
           this.signalRService.connectionState() === 'connected' ? 'Real-time user' : 'Offline user',
       });
       this.lastSaved.set(new Date());
-      console.log('Document saved to backend at', this.lastSaved());
-    } catch (error: any) {
-      console.error('Error saving document to backend:', error);
-
-      // Handle permission errors - user no longer has edit access
-      if (error.isPermissionError || error.status === 401 || error.status === 403) {
-        console.warn('Permission denied - switching to read-only mode');
+    } catch (saveError: any) {
+      console.error('Error saving document to backend:', saveError);
+      if (saveError.isPermissionError || saveError.status === 401 || saveError.status === 403) {
         this.handlePermissionRevoked();
       }
     } finally {
@@ -433,45 +385,77 @@ export class Editor implements OnInit {
   }
 
   private handlePermissionRevoked(): void {
-    // Update the UI to reflect read-only mode
     this.isEditable.set(false);
     this.accessLevel.set('View');
     this.permissionRevokedMessage.set(
       'Your edit access has been revoked. You can still view real-time updates but cannot make changes.',
     );
     this.showPermissionBanner.set(true);
-
-    // The textarea readonly state is already handled by the template binding
-    // No need to manually set styles - let the existing view-only CSS handle it
-
-    // Optionally: You can keep the SignalR connection to continue viewing updates
-    // or disconnect if you prefer:
-    // await this.signalRService.leaveDocument(this.docId());
-  }
-
-  private async setupSignalR() {
-    // Set up listeners before connection
-    this.signalRService.addContentUpdateListener();
-    this.signalRService.addUserJoinedListener();
-    this.signalRService.addUserLeftListener();
   }
 
   toggleTheme() {
-    const newTheme = this.isDarkMode() ? 'vs' : 'vs-dark';
-    this.theme.set(newTheme);
-    this.isDarkMode.set(!this.isDarkMode());
+    const shouldBeDark = !this.isDarkMode();
+    this.isDarkMode.set(shouldBeDark);
 
-    // Update via Monaco API if available
-    const monaco = (window as any).monaco;
-    if (monaco) {
-      monaco.editor.setTheme(newTheme);
+    if (!this.editorView) {
+      return;
+    }
+
+    this.editorView.dispatch({
+      effects: this.themeCompartment.reconfigure(
+        shouldBeDark ? oneDark : this.editorThemeExtension(),
+      ),
+    });
+  }
+
+  async formatCode() {
+    if (!this.editorView) {
+      return;
+    }
+
+    if (!this.isEditable()) {
+      if (!this.permissionRevokedMessage()) {
+        this.permissionRevokedMessage.set('This document is read-only.');
+      }
+      this.showPermissionBanner.set(true);
+      return;
+    }
+
+    const source = this.editorView.state.doc.toString();
+    const formatter = await this.getFormatterConfig(this.currentLanguage());
+    if (!formatter) {
+      return;
+    }
+
+    const prettier = await import('prettier/standalone');
+    const formatted = await prettier.format(source, {
+      parser: formatter.parser,
+      plugins: formatter.plugins,
+      printWidth: 100,
+      tabWidth: 2,
+      singleQuote: true,
+    });
+
+    if (formatted !== source) {
+      this.codeSignal.set(formatted);
+      this.updateEditorDocument(formatted);
+      this.scheduleDebounce(formatted);
+    }
+  }
+
+  toggleWordWrap() {
+    const next = !this.isWordWrapEnabled();
+    this.isWordWrapEnabled.set(next);
+
+    if (this.editorView) {
+      this.editorView.dispatch({
+        effects: this.wrapCompartment.reconfigure(next ? EditorView.lineWrapping : []),
+      });
     }
   }
 
   copyCode() {
-    navigator.clipboard.writeText(this.codeSignal()).then(() => {
-      console.log('Code copied to clipboard!');
-    });
+    void navigator.clipboard.writeText(this.codeSignal());
   }
 
   downloadCode() {
@@ -486,241 +470,130 @@ export class Editor implements OnInit {
     URL.revokeObjectURL(url);
   }
 
-  clearCode() {
-    this.codeSignal.set('');
-    const textarea = this.codeTextarea()?.nativeElement;
-    if (textarea) {
-      textarea.value = '';
-    }
-    this.updateLineNumbers('');
-    this.scheduleDebounce('');
-  }
-
-  private updateLineNumbers(content: string) {
-    // Count lines based on newline characters
-    const lines = content.split('\n');
-    const lineCount = lines.length;
-    this.lineNumbersArray.set(Array.from({ length: lineCount }, (_, i) => i + 1));
-  }
-
-  getLineNumbers(): string {
-    return this.lineNumbersArray().join('\n');
-  }
-
-  // Code-friendly editor features
-  private handleIndent(textarea: HTMLTextAreaElement, start: number, end: number) {
-    const value = textarea.value;
-
-    if (start === end) {
-      // Insert 2 spaces at cursor
-      const newValue = value.substring(0, start) + '  ' + value.substring(end);
-      textarea.value = newValue;
-      textarea.selectionStart = textarea.selectionEnd = start + 2;
-    } else {
-      // Indent selected lines
-      const lines = value.split('\n');
-      let currentPos = 0;
-      let startLine = 0;
-      let endLine = 0;
-
-      for (let i = 0; i < lines.length; i++) {
-        const lineEnd = currentPos + lines[i].length;
-        if (currentPos <= start && start <= lineEnd) startLine = i;
-        if (currentPos <= end && end <= lineEnd) endLine = i;
-        currentPos = lineEnd + 1;
-      }
-
-      for (let i = startLine; i <= endLine; i++) {
-        lines[i] = '  ' + lines[i];
-      }
-
-      textarea.value = lines.join('\n');
-      textarea.selectionStart = start + 2;
-      textarea.selectionEnd = end + (endLine - startLine + 1) * 2;
+  saveStatus(): string {
+    if (this.isSaving()) {
+      return 'Saving...';
     }
 
-    this.updateFromTextarea(textarea);
-  }
-
-  private handleOutdent(textarea: HTMLTextAreaElement, start: number, end: number) {
-    const value = textarea.value;
-    const lines = value.split('\n');
-    let currentPos = 0;
-    let startLine = 0;
-    let endLine = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const lineEnd = currentPos + lines[i].length;
-      if (currentPos <= start && start <= lineEnd) startLine = i;
-      if (currentPos <= end && end <= lineEnd) endLine = i;
-      currentPos = lineEnd + 1;
+    const savedAt = this.lastSaved();
+    if (!savedAt) {
+      return 'Not saved yet';
     }
 
-    let removed = 0;
-    for (let i = startLine; i <= endLine; i++) {
-      if (lines[i].startsWith('  ')) {
-        lines[i] = lines[i].substring(2);
-        removed += 2;
-      } else if (lines[i].startsWith(' ')) {
-        lines[i] = lines[i].substring(1);
-        removed += 1;
-      }
-    }
-
-    textarea.value = lines.join('\n');
-    textarea.selectionStart = Math.max(0, start - 2);
-    textarea.selectionEnd = Math.max(0, end - removed);
-
-    this.updateFromTextarea(textarea);
+    return `Saved ${savedAt.toLocaleTimeString()}`;
   }
 
-  private handleEnter(textarea: HTMLTextAreaElement) {
-    const start = textarea.selectionStart;
-    const value = textarea.value;
-    const beforeCursor = value.substring(0, start);
-    const afterCursor = value.substring(start);
-
-    // Get current line
-    const lines = beforeCursor.split('\n');
-    const currentLine = lines[lines.length - 1];
-
-    // Calculate indentation
-    const indent = currentLine.match(/^\s*/)?.[0] || '';
-
-    // Check if current line ends with opening bracket
-    const endsWithOpening = /[{[(]\s*$/.test(currentLine);
-    const startsWithClosing = /^\s*[}\])]/.test(afterCursor);
-
-    let newValue: string;
-    let newCursorPos: number;
-
-    if (endsWithOpening && startsWithClosing) {
-      // Add extra line with indent between brackets
-      newValue = beforeCursor + '\n' + indent + '  ' + '\n' + indent + afterCursor;
-      newCursorPos = start + indent.length + 3;
-    } else if (endsWithOpening) {
-      // Increase indent
-      newValue = beforeCursor + '\n' + indent + '  ' + afterCursor;
-      newCursorPos = start + indent.length + 3;
-    } else {
-      // Keep same indent
-      newValue = beforeCursor + '\n' + indent + afterCursor;
-      newCursorPos = start + indent.length + 1;
+  private updateEditorDocument(content: string, language?: string) {
+    const view = this.editorView;
+    if (!view) {
+      return;
     }
 
-    textarea.value = newValue;
-    textarea.selectionStart = textarea.selectionEnd = newCursorPos;
-
-    this.updateFromTextarea(textarea);
-  }
-
-  private autoClose(textarea: HTMLTextAreaElement, open: string, close: string) {
-    const start = textarea.selectionStart;
-    const value = textarea.value;
-
-    // For quotes, only auto-close if not already followed by the same quote
-    if (open === close) {
-      const nextChar = value[start];
-      if (nextChar === open) {
-        // Move cursor past the existing quote
-        textarea.selectionStart = textarea.selectionEnd = start + 1;
-        return;
-      }
+    if (typeof language === 'string') {
+      view.dispatch({
+        effects: this.languageCompartment.reconfigure(this.getLanguageExtension(language)),
+      });
+      this.currentLanguage.set(language);
     }
 
-    const newValue = value.substring(0, start) + open + close + value.substring(start);
-    textarea.value = newValue;
-    textarea.selectionStart = textarea.selectionEnd = start + 1;
-
-    this.updateFromTextarea(textarea);
-  }
-
-  private wrapSelection(textarea: HTMLTextAreaElement, open: string, close: string) {
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = textarea.value;
-    const selection = value.substring(start, end);
-
-    const newValue = value.substring(0, start) + open + selection + close + value.substring(end);
-    textarea.value = newValue;
-    textarea.selectionStart = start + 1;
-    textarea.selectionEnd = end + 1;
-
-    this.updateFromTextarea(textarea);
-  }
-
-  private duplicateLine(textarea: HTMLTextAreaElement) {
-    const start = textarea.selectionStart;
-    const value = textarea.value;
-    const beforeCursor = value.substring(0, start);
-    const afterCursor = value.substring(start);
-
-    const lines = beforeCursor.split('\n');
-    const currentLine = lines[lines.length - 1];
-    const afterLines = afterCursor.split('\n');
-    const restOfLine = afterLines[0];
-    const fullLine = currentLine + restOfLine;
-
-    const newValue =
-      value.substring(0, start) +
-      restOfLine +
-      '\n' +
-      fullLine +
-      afterCursor.substring(restOfLine.length);
-    textarea.value = newValue;
-    textarea.selectionStart = textarea.selectionEnd = start + restOfLine.length + 1;
-
-    this.updateFromTextarea(textarea);
-  }
-
-  private toggleComment(textarea: HTMLTextAreaElement) {
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const value = textarea.value;
-    const lines = value.split('\n');
-
-    let currentPos = 0;
-    let startLine = 0;
-    let endLine = 0;
-
-    for (let i = 0; i < lines.length; i++) {
-      const lineEnd = currentPos + lines[i].length;
-      if (currentPos <= start && start <= lineEnd) startLine = i;
-      if (currentPos <= end && end <= lineEnd) endLine = i;
-      currentPos = lineEnd + 1;
+    const current = view.state.doc.toString();
+    if (current === content) {
+      return;
     }
 
-    // Check if all lines are commented
-    let allCommented = true;
-    for (let i = startLine; i <= endLine; i++) {
-      if (!lines[i].trim().startsWith('//')) {
-        allCommented = false;
-        break;
-      }
-    }
-
-    if (allCommented) {
-      // Uncomment
-      for (let i = startLine; i <= endLine; i++) {
-        lines[i] = lines[i].replace(/^(\s*)\/\/\s?/, '$1');
-      }
-    } else {
-      // Comment
-      for (let i = startLine; i <= endLine; i++) {
-        const indent = lines[i].match(/^\s*/)?.[0] || '';
-        lines[i] = indent + '// ' + lines[i].substring(indent.length);
-      }
-    }
-
-    textarea.value = lines.join('\n');
-    this.updateFromTextarea(textarea);
+    this.isUpdatingFromRemote = true;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: content },
+    });
+    this.isUpdatingFromRemote = false;
   }
 
-  private updateFromTextarea(textarea: HTMLTextAreaElement) {
-    const newValue = textarea.value;
-    this.pushToUndoStack(this.codeSignal());
-    this.codeSignal.set(newValue);
-    this.updateLineNumbers(newValue);
-    this.scheduleDebounce(newValue);
+  private async getFormatterConfig(
+    language: string,
+  ): Promise<{ parser: string; plugins: any[] } | null> {
+    if (language === 'typescript') {
+      const ts = await import('prettier/plugins/typescript');
+      const estree = await import('prettier/plugins/estree');
+      return { parser: 'typescript', plugins: [ts.default ?? ts, estree.default ?? estree] };
+    }
+
+    if (language === 'javascript') {
+      const babel = await import('prettier/plugins/babel');
+      const estree = await import('prettier/plugins/estree');
+      return { parser: 'babel', plugins: [babel.default ?? babel, estree.default ?? estree] };
+    }
+
+    if (language === 'json') {
+      const babel = await import('prettier/plugins/babel');
+      const estree = await import('prettier/plugins/estree');
+      return { parser: 'json', plugins: [babel.default ?? babel, estree.default ?? estree] };
+    }
+
+    if (language === 'html') {
+      const htmlPlugin = await import('prettier/plugins/html');
+      return { parser: 'html', plugins: [htmlPlugin.default ?? htmlPlugin] };
+    }
+
+    if (language === 'scss' || language === 'css') {
+      const postcss = await import('prettier/plugins/postcss');
+      return {
+        parser: language === 'scss' ? 'scss' : 'css',
+        plugins: [postcss.default ?? postcss],
+      };
+    }
+
+    if (language === 'markdown') {
+      const markdownPlugin = await import('prettier/plugins/markdown');
+      return { parser: 'markdown', plugins: [markdownPlugin.default ?? markdownPlugin] };
+    }
+
+    return null;
+  }
+
+  private detectLanguage(name: string, content: string): string {
+    const loweredName = (name || '').toLowerCase();
+
+    if (loweredName.endsWith('.ts') || loweredName.endsWith('.tsx')) {
+      return 'typescript';
+    }
+
+    if (
+      loweredName.endsWith('.js') ||
+      loweredName.endsWith('.mjs') ||
+      loweredName.endsWith('.cjs')
+    ) {
+      return 'javascript';
+    }
+
+    if (loweredName.endsWith('.json')) {
+      return 'json';
+    }
+
+    if (loweredName.endsWith('.html')) {
+      return 'html';
+    }
+
+    if (loweredName.endsWith('.scss')) {
+      return 'scss';
+    }
+
+    if (loweredName.endsWith('.css')) {
+      return 'css';
+    }
+
+    if (loweredName.endsWith('.md')) {
+      return 'markdown';
+    }
+
+    const trimmed = content.trimStart();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return 'json';
+    }
+
+    if (trimmed.startsWith('<')) {
+      return 'html';
+    }
+
+    return 'plaintext';
   }
 }

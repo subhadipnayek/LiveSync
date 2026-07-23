@@ -1,31 +1,42 @@
-<div class="editor-wrapper">
-  <!-- Toolbar -->
+<div class="editor-wrapper" [class.light-theme]="!isDarkMode()">
   <mat-toolbar color="primary" class="editor-toolbar">
     <div class="toolbar-content">
       <div class="toolbar-left">
-        <span class="document-title">{{ docId() }}</span>
+        <span class="document-title">{{ docTitle() || docId() }}</span>
+
         @if (!isEditable()) {
-        <div class="view-only-badge">
-          <mat-icon>visibility</mat-icon>
-          <span>View Only</span>
-        </div>
+          <div class="view-only-badge">
+            <mat-icon>visibility</mat-icon>
+            <span>View Only</span>
+          </div>
         }
+
         <div class="connection-badge" [class]="signalRService.connectionState()">
           <mat-icon class="status-icon">
-            @if (signalRService.connectionState() === 'connected') { check_circle } @else {
-            radio_button_unchecked }
+            @if (signalRService.connectionState() === 'connected') {
+              check_circle
+            } @else {
+              radio_button_unchecked
+            }
           </mat-icon>
           <span>{{ signalRService.connectionState() }}</span>
         </div>
+
         @if (signalRService.activeUserCount() > 0) {
-        <div class="active-users">
-          <mat-icon>people</mat-icon>
-          <span>{{ signalRService.activeUserCount() }} active</span>
-        </div>
+          <div class="active-users">
+            <mat-icon>people</mat-icon>
+            <span>{{ signalRService.activeUserCount() }} active</span>
+          </div>
         }
       </div>
 
       <div class="toolbar-right">
+        <button mat-icon-button (click)="formatCode()" matTooltip="Format (Alt+Shift+F)">
+          <mat-icon>auto_fix_high</mat-icon>
+        </button>
+        <button mat-icon-button (click)="toggleWordWrap()" matTooltip="Toggle Word Wrap">
+          <mat-icon>{{ isWordWrapEnabled() ? 'wrap_text' : 'notes' }}</mat-icon>
+        </button>
         <button mat-icon-button (click)="downloadCode()" matTooltip="Download">
           <mat-icon>download</mat-icon>
         </button>
@@ -39,29 +50,23 @@
     </div>
   </mat-toolbar>
 
-  <!-- Permission Revoked Banner -->
   @if (showPermissionBanner()) {
-  <div class="permission-revoked-banner">
-    <mat-icon>warning</mat-icon>
-    <span>{{ permissionRevokedMessage() }}</span>
-    <button mat-icon-button (click)="dismissPermissionBanner()" class="close-banner-btn">
-      <mat-icon>close</mat-icon>
-    </button>
-  </div>
+    <div class="permission-revoked-banner">
+      <mat-icon>warning</mat-icon>
+      <span>{{ permissionRevokedMessage() }}</span>
+      <button mat-icon-button (click)="dismissPermissionBanner()" class="close-banner-btn">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
   }
 
-  <!-- Editor -->
   <div class="editor-container">
-    <div class="line-numbers-wrapper" [class.dark-theme]="isDarkMode()">
-      <pre class="line-numbers" #lineNumbers>{{ getLineNumbers() }}</pre>
-    </div>
-    <textarea
-      #codeTextarea
-      class="code-editor"
-      [class.dark-theme]="isDarkMode()"
-      [class.readonly]="!isEditable()"
-      [readonly]="!isEditable()"
-      spellcheck="false"
-    ></textarea>
+    <div #editorHost class="monaco-host"></div>
+  </div>
+
+  <div class="editor-statusbar" [class.light]="!isDarkMode()">
+    <span class="status-item">{{ currentLanguage() }}</span>
+    <span class="status-item">{{ cursorPosition() }}</span>
+    <span class="status-item">{{ saveStatus() }}</span>
   </div>
 </div>
